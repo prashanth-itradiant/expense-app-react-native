@@ -669,6 +669,7 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.lg,
     borderTopWidth: 1,
     borderTopColor: COLORS.border.light,
+    gap: SPACING.md, // Add gap between status badge and action container
   },
   statusBadge: {
     flexDirection: 'row',
@@ -677,9 +678,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     borderRadius: BORDER_RADIUS.full,
     borderWidth: 1,
-    marginRight: SPACING.md,
-    maxWidth: '50%',
-    minWidth: 80,
+    flexShrink: 1, // Allow the badge to shrink if needed
   },
   statusText: {
     fontSize: TYPOGRAPHY.fontSize.xs,
@@ -687,13 +686,14 @@ const styles = StyleSheet.create({
     marginLeft: SPACING.xs,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    flexShrink: 1, // Allow text to shrink and enable ellipsizeMode
   },
   actionContainer: {
     flexDirection: 'row',
     gap: SPACING.sm,
     alignItems: 'center',
-    flexShrink: 0,
-    minWidth: 120,
+    flexGrow: 0, // Prevent the container from growing
+    flexShrink: 0, // Prevent the container from shrinking
   },
   actionButton: {
     flexDirection: 'row',
