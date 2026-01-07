@@ -1,13 +1,12 @@
-import { VITE_API_URL } from '@env';
+import { pick, types } from '@react-native-documents/picker';
 import { Picker } from '@react-native-picker/picker';
 import { useNavigation } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { useEffect, useState } from 'react';
-
-import { pick, types } from '@react-native-documents/picker';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,8 +14,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+
+// replace or keep these constants as you already have them
 import {
   CARD_SHADOW,
   ERROR_COLOR,
@@ -26,22 +28,40 @@ import {
   WARNING_COLOR,
 } from '../theme/theme';
 import { CURRENCIES } from '../utils/constant';
+const { VITE_API_URL } = process.env; // or import { VITE_API_URL } from '@env';
 
 const ExpenseFormScreen = () => {
   const navigation = useNavigation();
+  const queryClient = useQueryClient();
+
   const [loading, setLoading] = useState(true);
+  const [submitLoading, setSubmitLoading] = useState(false);
+
+  // master data
   const [managers, setManagers] = useState([]);
   const [financeUsers, setFinanceUsers] = useState([]);
-  const queryClient = useQueryClient();
+  const [categories, setCategories] = useState([]);
+  const [clients, setClients] = useState([]);
+
+  const [totalReimbursement, setTotalReimbursement] = useState('0.00');
+
   const [formData, setFormData] = useState({
     expenseName: '',
+    periodFrom: '',
+    periodTo: '',
+    client: '',
+    reference: '',
     managerId: '',
     financeId: '',
     currency: '',
+    isAdvance: false,
+    advanceAmount: '',
     subExpenses: [
       {
+        documentDate: '',
+        expenseCategory: '',
         expenseType: '',
-        expenseName: '',
+        vendor: '',
         amount: '',
         description: '',
         files: [],
@@ -50,58 +70,108 @@ const ExpenseFormScreen = () => {
   });
 
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchAll = async () => {
       try {
-        const { data } = await axios.get(
+        const usersReq = axios.get(
           `${VITE_API_URL}/users/get-organization-users`,
           {
             withCredentials: true,
           },
         );
-        if (data.success) {
-          setManagers(data.data.managers);
-          setFinanceUsers(data.data.financeUsers);
-        } else {
-          Toast.show({ type: 'error', text1: 'Failed to fetch users' });
+        const catReq = axios.get(`${VITE_API_URL}/admin/get-all-categories`, {
+          withCredentials: true,
+        });
+        const clientsReq = axios.get(`${VITE_API_URL}/admin/get-all-clients`, {
+          withCredentials: true,
+        });
+
+        const [usersRes, catRes, clientsRes] = await Promise.all([
+          usersReq,
+          catReq,
+          clientsReq,
+        ]);
+
+        if (usersRes.data?.success) {
+          setManagers(usersRes.data.data.managers || []);
+          setFinanceUsers(usersRes.data.data.financeUsers || []);
         }
+
+        setCategories(Array.isArray(catRes.data?.data) ? catRes.data.data : []);
+        setClients(
+          Array.isArray(clientsRes.data?.data) ? clientsRes.data.data : [],
+        );
       } catch (err) {
-        Toast.show({ type: 'error', text1: 'Error fetching users' });
+        console.error('Failed to fetch init data', err);
+        Toast.show({ type: 'error', text1: 'Failed to load initial data' });
       } finally {
         setLoading(false);
       }
     };
-    fetchUsers();
+
+    fetchAll();
   }, []);
 
+  // recalc total
+  useEffect(() => {
+    let total = 0;
+    formData.subExpenses.forEach(s => {
+      const n = parseFloat(s.amount);
+      if (!isNaN(n)) total += n;
+    });
+    setTotalReimbursement(total.toFixed(2));
+  }, [formData.subExpenses]);
+
   const handleChange = (name, value, index = null) => {
+    // index !== null => subExpense field
     if (index !== null) {
-      const updatedSubExpenses = [...formData.subExpenses];
-      updatedSubExpenses[index][name] = value;
-      setFormData({ ...formData, subExpenses: updatedSubExpenses });
+      const updated = [...formData.subExpenses];
+      // If changing category, reset expenseType and vendor
+      if (name === 'expenseCategory') {
+        updated[index].expenseCategory = value;
+        updated[index].expenseType = '';
+        updated[index].vendor = '';
+      } else if (name === 'expenseType') {
+        updated[index].expenseType = value;
+        updated[index].vendor = '';
+      } else {
+        updated[index][name] = value;
+      }
+      setFormData(p => ({ ...p, subExpenses: updated }));
     } else {
-      setFormData({ ...formData, [name]: value });
+      // top-level change
+      if (name === 'isAdvance') {
+        setFormData(p => ({
+          ...p,
+          isAdvance: !!value,
+          advanceAmount: value ? p.advanceAmount : '',
+        }));
+      } else {
+        setFormData(p => ({ ...p, [name]: value }));
+      }
     }
   };
 
   const addSubExpense = () => {
-    setFormData({
-      ...formData,
+    setFormData(p => ({
+      ...p,
       subExpenses: [
-        ...formData.subExpenses,
+        ...p.subExpenses,
         {
+          documentDate: '',
+          expenseCategory: '',
           expenseType: '',
-          expenseName: '',
+          vendor: '',
           amount: '',
           description: '',
           files: [],
         },
       ],
-    });
+    }));
   };
 
-  const removeSubExpense = index => {
-    const updated = formData.subExpenses.filter((_, i) => i !== index);
-    setFormData({ ...formData, subExpenses: updated });
+  const removeSubExpense = idx => {
+    const updated = formData.subExpenses.filter((_, i) => i !== idx);
+    setFormData(p => ({ ...p, subExpenses: updated }));
   };
 
   const pickFiles = async index => {
@@ -110,86 +180,129 @@ const ExpenseFormScreen = () => {
         type: [types.allFiles],
         allowMultiSelection: true,
       });
-      const updatedSubExpenses = [...formData.subExpenses];
-
-      updatedSubExpenses[index].files = [
-        ...updatedSubExpenses[index].files,
-        ...results.map(file => ({
-          uri: file.uri,
-          type: file.type,
-          name: file.name,
-          size: file.size,
-          fileCopyUri: file.fileCopyUri,
+      const updated = [...formData.subExpenses];
+      updated[index].files = [
+        ...updated[index].files,
+        ...results.map(f => ({
+          uri: f.uri,
+          type: f.type,
+          name: f.name || f.fileName || `file-${Date.now()}`,
+          size: f.size,
+          fileCopyUri: f.fileCopyUri,
         })),
       ];
-
-      setFormData({ ...formData, subExpenses: updatedSubExpenses });
+      setFormData(p => ({ ...p, subExpenses: updated }));
     } catch (err) {
-      if (err.code === 'CANCELLED') {
-        // User canceled the picker
+      if (err?.code === 'CANCELLED') {
+        // user canceled, ignore
       } else {
-        console.error(err);
+        console.error('pickFiles error', err);
         Toast.show({ type: 'error', text1: 'Error picking files' });
       }
     }
   };
 
-  const handleDeleteFile = (subExpenseIndex, fileIndex) => {
-    const updatedSubExpenses = [...formData.subExpenses];
-    updatedSubExpenses[subExpenseIndex].files.splice(fileIndex, 1);
-    setFormData({ ...formData, subExpenses: updatedSubExpenses });
+  const handleDeleteFile = (subIdx, fileIdx) => {
+    const updated = [...formData.subExpenses];
+    updated[subIdx].files.splice(fileIdx, 1);
+    setFormData(p => ({ ...p, subExpenses: updated }));
+  };
+
+  const validateBeforeSubmit = () => {
+    // each subExpense must have at least one file
+    for (let i = 0; i < formData.subExpenses.length; i++) {
+      const s = formData.subExpenses[i];
+      if (!s.files || s.files.length === 0) {
+        Toast.show({
+          type: 'error',
+          text1: `Attach at least one file for item ${i + 1}`,
+        });
+        return false;
+      }
+    }
+    // other validations can be added here (dates, manager, finance, currency etc.)
+    return true;
   };
 
   const handleSubmit = async isDraft => {
-    const payload = new FormData();
-    payload.append('expenseName', formData.expenseName);
-    payload.append('managerId', formData.managerId);
-    payload.append('financeId', formData.financeId);
-    payload.append('isDraft', isDraft);
-    payload.append('currency', formData.currency);
+    // guard
+    if (!validateBeforeSubmit()) return;
 
-    formData.subExpenses.forEach((sub, idx) => {
-      payload.append(`expenseType-${idx}`, sub.expenseType);
-      payload.append(`expenseName-${idx}`, sub.expenseName);
-      payload.append(`amount-${idx}`, sub.amount);
-      payload.append(`description-${idx}`, sub.description);
-      sub.files.forEach(file => {
-        let name = file.name || file.fileName || `file-${idx}`;
+    setSubmitLoading(true);
+    try {
+      const payload = new FormData();
+      payload.append('expenseName', formData.expenseName || '');
+      payload.append('periodFrom', formData.periodFrom || '');
+      payload.append('periodTo', formData.periodTo || '');
+      payload.append('client', formData.client || '');
+      payload.append('reference', formData.reference || '');
+      payload.append('managerId', formData.managerId || '');
+      payload.append('financeId', formData.financeId || '');
+      payload.append('currency', formData.currency || '');
+      payload.append('isAdvance', formData.isAdvance ? 'true' : 'false');
+      payload.append('advanceAmount', formData.advanceAmount || '');
+      payload.append('totalReimbursement', totalReimbursement || '0.00');
+      payload.append('isDraft', isDraft ? 'true' : 'false');
 
-        if (!name.includes('.') && file.type === 'application/pdf') {
-          name += '.pdf';
-        } else if (!name.includes('.') && file.type?.startsWith('image/')) {
-          name += '.jpg';
-        }
+      formData.subExpenses.forEach((sub, i) => {
+        payload.append(`documentDate-${i}`, sub.documentDate || '');
+        payload.append(`expenseCategory-${i}`, sub.expenseCategory || '');
+        // here we send expenseType as GL account (web does gl_account for subtype in web code)
+        payload.append(`expenseType-${i}`, sub.expenseType || '');
+        payload.append(`gl_account-${i}`, sub.expenseType || '');
+        payload.append(`vendor-${i}`, sub.vendor || '');
+        payload.append(`amount-${i}`, sub.amount || '');
+        payload.append(`description-${i}`, sub.description || '');
 
-        payload.append(`files-${idx}`, {
-          uri: file.uri,
-          type:
-            file.type ||
-            (name.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'),
-          name,
+        sub.files.forEach(file => {
+          // On Android/IOS we pass object with uri,type,name
+          let name = file.name || `file-${Date.now()}`;
+          // if name missing extension, attempt to fix
+          if (!name.includes('.')) {
+            if (file.type === 'application/pdf') name = name + '.pdf';
+            else if (file.type?.startsWith('image/')) name = name + '.jpg';
+          }
+
+          payload.append(`files-${i}`, {
+            uri:
+              Platform.OS === 'android'
+                ? file.uri
+                : file.uri.replace('file://', ''),
+            type:
+              file.type ||
+              (name.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'),
+            name,
+          });
         });
       });
-    });
 
-    try {
       const res = await axios.post(`${VITE_API_URL}/expenses/`, payload, {
         withCredentials: true,
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      if (res.data.success) {
+      console.log('submit response', res);
+
+      if (res?.data?.success) {
         Toast.show({
           type: 'success',
           text1: res.data.message || 'Expense submitted successfully!',
         });
         queryClient.invalidateQueries({ queryKey: ['expenses'] });
         navigation.navigate('ExpensesList');
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: res?.data?.message || 'Failed to submit expense',
+        });
       }
     } catch (err) {
+      console.error('submit error', err);
       Toast.show({
         type: 'error',
         text1: err.response?.data?.message || 'Error submitting expense',
       });
+    } finally {
+      setSubmitLoading(false);
     }
   };
 
@@ -203,266 +316,428 @@ const ExpenseFormScreen = () => {
   }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Create Expense</Text>
-        <Text style={styles.subtitle}>Fill in the details below</Text>
-      </View>
-
-      <View style={styles.formSection}>
-        <Text style={styles.sectionTitle}>Basic Information</Text>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Expense Name *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter expense name"
-            placeholderTextColor={INACTIVE_COLOR}
-            value={formData.expenseName}
-            onChangeText={text => handleChange('expenseName', text)}
-          />
+    <SafeAreaView style={{ flex: 1 }}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Create Expense</Text>
+          <Text style={styles.subtitle}>Fill in the details below</Text>
         </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Manager *</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={formData.managerId}
-              onValueChange={val => handleChange('managerId', val)}
-              style={styles.picker}
-            >
-              <Picker.Item
-                label="Select Manager"
-                value=""
-                color={INACTIVE_COLOR}
-              />
-              {managers.map(m => (
-                <Picker.Item
-                  key={m._id}
-                  label={m.name}
-                  value={m._id}
-                  color={INACTIVE_COLOR}
-                />
-              ))}
-            </Picker>
+        <View style={styles.formSection}>
+          <Text style={styles.sectionTitle}>Basic Information</Text>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Expense Name *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter expense name"
+              placeholderTextColor={INACTIVE_COLOR}
+              value={formData.expenseName}
+              onChangeText={text => handleChange('expenseName', text)}
+            />
           </View>
-        </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Finance User *</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={formData.financeId}
-              onValueChange={val => handleChange('financeId', val)}
-              style={styles.picker}
-            >
-              <Picker.Item
-                label="Select Finance User"
-                value=""
-                color={INACTIVE_COLOR}
-              />
-              {financeUsers.map(f => (
-                <Picker.Item
-                  key={f._id}
-                  label={f.name}
-                  value={f._id}
-                  color={INACTIVE_COLOR}
-                />
-              ))}
-            </Picker>
-          </View>
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Currency *</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={formData.currency}
-              onValueChange={val => handleChange('currency', val)}
-              style={styles.picker}
-            >
-              <Picker.Item
-                label="Select Currency"
-                value=""
-                color={INACTIVE_COLOR}
-              />
-              {CURRENCIES.map(c => (
-                <Picker.Item
-                  key={c}
-                  label={c}
-                  value={c}
-                  color={INACTIVE_COLOR}
-                />
-              ))}
-            </Picker>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.formSection}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Expense Items</Text>
-          <TouchableOpacity style={styles.addButton} onPress={addSubExpense}>
-            <MaterialIcons name="add" size={20} color="#fff" />
-            <Text style={styles.addButtonText}>Add Item</Text>
-          </TouchableOpacity>
-        </View>
-
-        {formData.subExpenses.map((sub, idx) => (
-          <View key={idx} style={styles.subExpenseCard}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Item {idx + 1}</Text>
-              {formData.subExpenses.length > 1 && (
-                <TouchableOpacity
-                  onPress={() => removeSubExpense(idx)}
-                  style={styles.deleteButton}
-                >
-                  <MaterialIcons name="delete" size={20} color={ERROR_COLOR} />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Expense Type *</Text>
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={sub.expenseType}
-                  onValueChange={val => handleChange('expenseType', val, idx)}
-                  style={styles.picker}
-                >
-                  <Picker.Item
-                    label="Select Type"
-                    value=""
-                    color={INACTIVE_COLOR}
-                  />
-                  <Picker.Item
-                    label="Travel"
-                    value="travel"
-                    color={INACTIVE_COLOR}
-                  />
-                  <Picker.Item
-                    label="Food"
-                    value="food"
-                    color={INACTIVE_COLOR}
-                  />
-                  <Picker.Item
-                    label="Accommodation"
-                    value="accommodation"
-                    color={INACTIVE_COLOR}
-                  />
-                  <Picker.Item
-                    label="Office Supplies"
-                    value="office supplies"
-                    color={INACTIVE_COLOR}
-                  />
-                  <Picker.Item
-                    label="Others"
-                    value="others"
-                    color={INACTIVE_COLOR}
-                  />
-                </Picker>
-              </View>
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Item Name *</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={[styles.inputContainer, { flex: 1 }]}>
+              <Text style={styles.inputLabel}>Period From</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Enter item name"
+                placeholder="YYYY-MM-DD"
                 placeholderTextColor={INACTIVE_COLOR}
-                value={sub.expenseName}
-                onChangeText={text => handleChange('expenseName', text, idx)}
+                value={formData.periodFrom}
+                onChangeText={val => handleChange('periodFrom', val)}
               />
             </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Amount *</Text>
+            <View style={[styles.inputContainer, { flex: 1 }]}>
+              <Text style={styles.inputLabel}>Period To</Text>
               <TextInput
                 style={styles.input}
-                placeholder="0.00"
+                placeholder="YYYY-MM-DD"
                 placeholderTextColor={INACTIVE_COLOR}
-                keyboardType="numeric"
-                value={sub.amount}
-                onChangeText={text => handleChange('amount', text, idx)}
+                value={formData.periodTo}
+                onChangeText={val => handleChange('periodTo', val)}
               />
             </View>
+          </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Description</Text>
-              <TextInput
-                style={styles.textarea}
-                placeholder="Enter description (optional)"
-                placeholderTextColor={INACTIVE_COLOR}
-                multiline
-                numberOfLines={4}
-                value={sub.description}
-                onChangeText={text => handleChange('description', text, idx)}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Attachments</Text>
-              <TouchableOpacity
-                style={styles.fileButton}
-                onPress={() => pickFiles(idx)}
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Client</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={formData.client}
+                onValueChange={val => handleChange('client', val)}
+                style={styles.picker}
               >
-                <MaterialIcons name="attach-file" size={20} color="#fff" />
-                <Text style={styles.fileButtonText}>Add Files</Text>
-              </TouchableOpacity>
-
-              {sub.files.length > 0 && (
-                <View style={styles.fileListContainer}>
-                  {sub.files.map((file, fileIdx) => (
-                    <View key={fileIdx} style={styles.fileItem}>
-                      <View style={styles.fileInfo}>
-                        <MaterialIcons
-                          name="insert-drive-file"
-                          size={16}
-                          color={PRIMARY_COLOR}
-                        />
-                        <Text style={styles.fileName} numberOfLines={1}>
-                          {file.name}
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        onPress={() => handleDeleteFile(idx, fileIdx)}
-                        style={styles.fileDeleteButton}
-                      >
-                        <MaterialIcons
-                          name="close"
-                          size={16}
-                          color={ERROR_COLOR}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-              )}
+                <Picker.Item
+                  label="Select Client"
+                  value=""
+                  color={INACTIVE_COLOR}
+                />
+                {clients.map(c => (
+                  <Picker.Item
+                    key={c._id}
+                    label={c.name}
+                    value={c._id}
+                    color={INACTIVE_COLOR}
+                  />
+                ))}
+              </Picker>
             </View>
           </View>
-        ))}
-      </View>
 
-      <View style={styles.actionSection}>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.draftButton]}
-          onPress={() => handleSubmit(true)}
-        >
-          <MaterialIcons name="save" size={20} color="#fff" />
-          <Text style={styles.actionButtonText}>Save Draft</Text>
-        </TouchableOpacity>
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Reference</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Reference No."
+              placeholderTextColor={INACTIVE_COLOR}
+              value={formData.reference}
+              onChangeText={val => handleChange('reference', val)}
+            />
+          </View>
 
-        <TouchableOpacity
-          style={[styles.actionButton, styles.submitButton]}
-          onPress={() => handleSubmit(false)}
-        >
-          <MaterialIcons name="send" size={20} color="#fff" />
-          <Text style={styles.actionButtonText}>Submit Expense</Text>
-        </TouchableOpacity>
-      </View>
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Manager *</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={formData.managerId}
+                onValueChange={val => handleChange('managerId', val)}
+                style={styles.picker}
+              >
+                <Picker.Item
+                  label="Select Manager"
+                  value=""
+                  color={INACTIVE_COLOR}
+                />
+                {managers.map(m => (
+                  <Picker.Item
+                    key={m._id}
+                    label={m.name}
+                    value={m._id}
+                    color={INACTIVE_COLOR}
+                  />
+                ))}
+              </Picker>
+            </View>
+          </View>
 
-      <Toast />
-    </ScrollView>
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Finance *</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={formData.financeId}
+                onValueChange={val => handleChange('financeId', val)}
+                style={styles.picker}
+              >
+                <Picker.Item
+                  label="Select Finance"
+                  value=""
+                  color={INACTIVE_COLOR}
+                />
+                {financeUsers.map(f => (
+                  <Picker.Item
+                    key={f._id}
+                    label={f.name}
+                    value={f._id}
+                    color={INACTIVE_COLOR}
+                  />
+                ))}
+              </Picker>
+            </View>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Currency *</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={formData.currency}
+                onValueChange={val => handleChange('currency', val)}
+                style={styles.picker}
+              >
+                <Picker.Item
+                  label="Select Currency"
+                  value=""
+                  color={INACTIVE_COLOR}
+                />
+                {CURRENCIES.map(c => (
+                  <Picker.Item
+                    key={c}
+                    label={c}
+                    value={c}
+                    color={INACTIVE_COLOR}
+                  />
+                ))}
+              </Picker>
+            </View>
+          </View>
+
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: 12,
+            }}
+          >
+            <TouchableOpacity
+              onPress={() => handleChange('isAdvance', !formData.isAdvance)}
+              style={{ marginRight: 8 }}
+            >
+              <MaterialIcons
+                name={
+                  formData.isAdvance ? 'check-box' : 'check-box-outline-blank'
+                }
+                size={24}
+                color={PRIMARY_COLOR}
+              />
+            </TouchableOpacity>
+
+            <Text style={styles.inputLabel}>Advance Amount</Text>
+
+            {formData.isAdvance && (
+              <TextInput
+                style={[styles.input, { marginLeft: 10, width: 140 }]}
+                placeholder="0.00"
+                keyboardType="numeric"
+                value={formData.advanceAmount}
+                onChangeText={val => handleChange('advanceAmount', val)}
+              />
+            )}
+          </View>
+        </View>
+
+        {/* Expense Items */}
+        <View style={styles.formSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Expense Items</Text>
+            <TouchableOpacity style={styles.addButton} onPress={addSubExpense}>
+              <MaterialIcons name="add" size={20} color="#fff" />
+              <Text style={styles.addButtonText}>Add Item</Text>
+            </TouchableOpacity>
+          </View>
+
+          {formData.subExpenses.map((sub, idx) => {
+            const selectedCategory = categories.find(
+              c => c._id === sub.expenseCategory,
+            );
+            const selectedType = selectedCategory?.subtypes?.find(
+              st => st.gl_account === sub.expenseType,
+            );
+
+            return (
+              <View key={idx} style={styles.subExpenseCard}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardTitle}>Item {idx + 1}</Text>
+                  {formData.subExpenses.length > 1 && (
+                    <TouchableOpacity
+                      onPress={() => removeSubExpense(idx)}
+                      style={styles.deleteButton}
+                    >
+                      <MaterialIcons
+                        name="delete"
+                        size={20}
+                        color={ERROR_COLOR}
+                      />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Expense Date</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="YYYY-MM-DD"
+                    value={sub.documentDate}
+                    onChangeText={val => handleChange('documentDate', val, idx)}
+                  />
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Expense Category *</Text>
+                  <View style={styles.pickerContainer}>
+                    <Picker
+                      selectedValue={sub.expenseCategory}
+                      onValueChange={val =>
+                        handleChange('expenseCategory', val, idx)
+                      }
+                      style={styles.picker}
+                    >
+                      <Picker.Item
+                        label="Select Category"
+                        value=""
+                        color={INACTIVE_COLOR}
+                      />
+                      {categories.map(cat => (
+                        <Picker.Item
+                          key={cat._id}
+                          label={cat.name}
+                          value={cat._id}
+                          color={INACTIVE_COLOR}
+                        />
+                      ))}
+                    </Picker>
+                  </View>
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Expense Type *</Text>
+                  <View style={styles.pickerContainer}>
+                    <Picker
+                      selectedValue={sub.expenseType}
+                      onValueChange={val =>
+                        handleChange('expenseType', val, idx)
+                      }
+                      style={styles.picker}
+                    >
+                      <Picker.Item
+                        label="Select Type"
+                        value=""
+                        color={INACTIVE_COLOR}
+                      />
+                      {selectedCategory?.subtypes?.map(st => (
+                        <Picker.Item
+                          key={st.gl_account}
+                          label={st.name}
+                          value={st.gl_account}
+                          color={INACTIVE_COLOR}
+                        />
+                      ))}
+                    </Picker>
+                  </View>
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Vendor *</Text>
+                  <View style={styles.pickerContainer}>
+                    <Picker
+                      selectedValue={sub.vendor}
+                      onValueChange={val => handleChange('vendor', val, idx)}
+                      style={styles.picker}
+                    >
+                      <Picker.Item
+                        label="Select Vendor"
+                        value=""
+                        color={INACTIVE_COLOR}
+                      />
+                      {selectedType?.vendors?.map((v, vidx) => (
+                        <Picker.Item
+                          key={`${v.name}-${vidx}`}
+                          label={v.name}
+                          value={v.name}
+                          color={INACTIVE_COLOR}
+                        />
+                      ))}
+                    </Picker>
+                  </View>
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Amount *</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="0.00"
+                    keyboardType="numeric"
+                    value={sub.amount?.toString() || ''}
+                    onChangeText={val => handleChange('amount', val, idx)}
+                  />
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Description</Text>
+                  <TextInput
+                    style={styles.textarea}
+                    placeholder="Optional description"
+                    placeholderTextColor={INACTIVE_COLOR}
+                    value={sub.description}
+                    onChangeText={val => handleChange('description', val, idx)}
+                    multiline
+                  />
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Attachments</Text>
+                  <TouchableOpacity
+                    style={styles.fileButton}
+                    onPress={() => pickFiles(idx)}
+                  >
+                    <MaterialIcons name="attach-file" size={20} color="#fff" />
+                    <Text style={styles.fileButtonText}>Add Files</Text>
+                  </TouchableOpacity>
+
+                  {sub.files.length > 0 && (
+                    <View style={styles.fileListContainer}>
+                      {sub.files.map((file, fidx) => (
+                        <View key={fidx} style={styles.fileItem}>
+                          <View style={styles.fileInfo}>
+                            <MaterialIcons
+                              name="insert-drive-file"
+                              size={16}
+                              color={PRIMARY_COLOR}
+                            />
+                            <Text style={styles.fileName} numberOfLines={1}>
+                              {file.name}
+                            </Text>
+                          </View>
+                          <TouchableOpacity
+                            onPress={() => handleDeleteFile(idx, fidx)}
+                            style={styles.fileDeleteButton}
+                          >
+                            <MaterialIcons
+                              name="close"
+                              size={16}
+                              color={ERROR_COLOR}
+                            />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        {/* Total + Actions */}
+        <View style={styles.formSection}>
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Total Reimbursement</Text>
+            <TextInput
+              style={styles.input}
+              value={totalReimbursement.toString()}
+              editable={false}
+            />
+          </View>
+
+          <View style={styles.actionSection}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.draftButton]}
+              onPress={() => handleSubmit(true)}
+            >
+              <MaterialIcons name="save" size={20} color="#fff" />
+              <Text style={styles.actionButtonText}>Save Draft</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionButton, styles.submitButton]}
+              onPress={() => handleSubmit(false)}
+              disabled={submitLoading}
+            >
+              {submitLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <MaterialIcons name="send" size={20} color="#fff" />
+                  <Text style={styles.actionButtonText}>Submit Expense</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <Toast />
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -516,7 +791,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   inputLabel: {
     fontSize: 14,
@@ -528,7 +803,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#D1D5DB',
     borderRadius: 12,
-    padding: 16,
+    padding: 12,
     fontSize: 16,
     backgroundColor: '#fff',
     color: '#1F2937',
@@ -538,11 +813,11 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#D1D5DB',
     borderRadius: 12,
-    padding: 16,
+    padding: 12,
     fontSize: 16,
     backgroundColor: '#fff',
     color: '#1F2937',
-    minHeight: 100,
+    minHeight: 80,
     textAlignVertical: 'top',
     ...CARD_SHADOW,
   },
@@ -571,12 +846,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
-    marginLeft: 4,
+    marginLeft: 6,
   },
   subExpenseCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -586,8 +861,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 12,
+    marginBottom: 12,
+    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
@@ -659,9 +934,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderRadius: 12,
     ...CARD_SHADOW,
+    marginBottom: 8,
   },
   actionButtonText: {
     color: '#fff',

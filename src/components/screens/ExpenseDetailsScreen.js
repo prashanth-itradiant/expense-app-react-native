@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable react-native/no-inline-styles */
 import { VITE_API_URL, VITE_IMAGE_URL } from '@env';
 import { useRoute } from '@react-navigation/native';
 import axios from 'axios';
@@ -15,7 +17,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import Toast from 'react-native-toast-message';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { PRIMARY_COLOR, STATUS_COLORS } from '../theme/theme';
+import { getStatusColor, PRIMARY_COLOR, STATUS_COLORS } from '../theme/theme';
 
 export default function ExpenseDetailsScreen() {
   const route = useRoute();
@@ -24,31 +26,80 @@ export default function ExpenseDetailsScreen() {
   const [expense, setExpense] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const [categories, setCategories] = useState([]);
+  const [clients, setClients] = useState([]);
+
+  /* ---------------- FETCH LOOKUPS LIKE WEB ---------------- */
+
+  const fetchCategories = async () => {
+    try {
+      const { data } = await axios.get(
+        `${VITE_API_URL}/admin/get-all-categories`,
+        {
+          withCredentials: true,
+        },
+      );
+
+      setCategories(Array.isArray(data.data) ? data.data : []);
+    } catch {
+      Toast.show({ type: 'error', text1: 'Failed to load categories' });
+    }
+  };
+
+  const fetchClients = async () => {
+    try {
+      const { data } = await axios.get(
+        `${VITE_API_URL}/admin/get-all-clients`,
+        {
+          withCredentials: true,
+        },
+      );
+      setClients(data.data || []);
+    } catch {
+      Toast.show({ type: 'error', text1: 'Failed to load clients' });
+    }
+  };
+
+  const getCategoryName = id => {
+    const found = categories.find(c => c._id === id);
+    return found ? found.name : id;
+  };
+
+  const getClientName = id => {
+    const found = clients.find(c => c._id === id);
+    return found ? found.name : id;
+  };
+
+  /* ---------------- FETCH EXPENSE DETAILS ---------------- */
+
   const fetchExpenseDetails = useCallback(async () => {
     setLoading(true);
     try {
       const { data } = await axios.get(
         `${VITE_API_URL}/expenses/get-expense/${id}`,
-        { withCredentials: true },
+        {
+          withCredentials: true,
+        },
       );
       if (data.success) setExpense(data.data);
-      else
-        Toast.show({ type: 'error', text1: 'Failed to fetch expense details' });
+      else Toast.show({ type: 'error', text1: 'Failed to fetch details' });
     } catch {
-      Toast.show({ type: 'error', text1: 'Error fetching expense details' });
+      Toast.show({ type: 'error', text1: 'Error fetching details' });
     } finally {
       setLoading(false);
     }
   }, [id]);
 
+  /* ---------------- INITIAL LOAD ---------------- */
   useEffect(() => {
+    fetchClients();
+    fetchCategories();
     fetchExpenseDetails();
-  }, [fetchExpenseDetails]);
+  }, []);
 
-  const getApprovalStyle = status => ({
-    backgroundColor: STATUS_COLORS[status] + '20',
-    color: STATUS_COLORS[status],
-  });
+  /* ---------------- HELPERS ---------------- */
+  const getStatusColor = status =>
+    STATUS_COLORS[status] || STATUS_COLORS.pending;
 
   const getStatusIcon = status => {
     switch (status) {
@@ -56,23 +107,10 @@ export default function ExpenseDetailsScreen() {
         return 'check-circle';
       case 'rejected':
         return 'cancel';
-      case 'pending':
+      case 'resubmission':
+        return 'refresh';
+      default:
         return 'schedule';
-      default:
-        return 'help';
-    }
-  };
-
-  const getStatusColor = status => {
-    switch (status) {
-      case 'approved':
-        return '#10B981';
-      case 'rejected':
-        return '#EF4444';
-      case 'pending':
-        return '#F59E0B';
-      default:
-        return '#6B7280';
     }
   };
 
@@ -83,7 +121,7 @@ export default function ExpenseDetailsScreen() {
           colors={['#667eea', '#764ba2']}
           style={styles.loadingContainer}
         >
-          <ActivityIndicator size="large" color="#FFFFFF" />
+          <ActivityIndicator size="large" color="#FFF" />
           <Text style={styles.loadingText}>Loading expense details...</Text>
         </LinearGradient>
       </View>
@@ -99,17 +137,18 @@ export default function ExpenseDetailsScreen() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Header Section */}
+      {/* HEADER */}
       <LinearGradient
         colors={['#667eea', '#764ba2']}
         style={styles.headerGradient}
       >
         <Text style={styles.headerTitle}>Expense Details</Text>
+
         <View style={styles.headerStatusContainer}>
           <MaterialIcons
             name={getStatusIcon(expense.status)}
-            size={24}
-            color="#FFFFFF"
+            size={22}
+            color="#FFF"
           />
           <Text style={styles.headerStatus}>
             {expense.status
@@ -119,56 +158,34 @@ export default function ExpenseDetailsScreen() {
         </View>
       </LinearGradient>
 
-      {/* Main Info Card */}
+      {/* MAIN INFO CARD */}
       <View style={[styles.mainCard, styles.cardShadow]}>
         <View style={styles.cardHeader}>
           <MaterialIcons name="receipt" size={24} color={PRIMARY_COLOR} />
           <Text style={styles.cardTitle}>Expense Information</Text>
         </View>
 
-        <View style={styles.infoRow}>
-          <View style={styles.infoItem}>
-            <MaterialIcons name="description" size={20} color="#6B7280" />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Expense Name</Text>
-              <Text style={styles.infoValue}>{expense.expenseName}</Text>
-            </View>
+        {/* EXACT SAME FIELDS AS WEB */}
+        {[
+          ['Expense Name', expense.expenseName],
+          ['Manager', expense.managerId?.name],
+          ['Finance', expense.financeId?.name],
+          ['Currency', expense.currency],
+          ['Total Reimbursement', expense.totalReimbursement],
+          ['From', new Date(expense.periodFrom).toLocaleDateString('en-US')],
+          ['To', new Date(expense.periodTo).toLocaleDateString('en-US')],
+          ['Client', getClientName(expense.clientId)],
+          ['Reference No', expense.reference],
+          ['Advance Amount', expense.advanceAmount],
+        ].map(([label, value], idx) => (
+          <View key={idx} style={styles.webRow}>
+            <Text style={styles.webLabel}>{label}</Text>
+            <Text style={styles.webValue}>{value || 'N/A'}</Text>
           </View>
-        </View>
-
-        <View style={styles.infoRow}>
-          <View style={styles.infoItem}>
-            <MaterialIcons name="person" size={20} color="#6B7280" />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Manager</Text>
-              <Text style={styles.infoValue}>
-                {expense.managerId?.name || 'N/A'}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.infoItem}>
-            <MaterialIcons name="account-balance" size={20} color="#6B7280" />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Finance</Text>
-              <Text style={styles.infoValue}>
-                {expense.financeId?.name || 'N/A'}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.infoRow}>
-          <View style={styles.infoItem}>
-            <MaterialIcons name="attach-money" size={20} color="#6B7280" />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Currency</Text>
-              <Text style={styles.infoValue}>{expense.currency || 'N/A'}</Text>
-            </View>
-          </View>
-        </View>
+        ))}
       </View>
 
-      {/* Sub-Expenses Section */}
+      {/* SUB EXPENSES SECTION */}
       <View style={styles.sectionHeader}>
         <MaterialIcons name="list" size={24} color={PRIMARY_COLOR} />
         <Text style={styles.sectionTitle}>Sub-Expenses</Text>
@@ -180,55 +197,39 @@ export default function ExpenseDetailsScreen() {
             <View style={styles.subExpenseNumber}>
               <Text style={styles.subExpenseNumberText}>{index + 1}</Text>
             </View>
-            <View style={styles.subExpenseHeaderContent}>
-              <Text style={styles.subExpenseName}>{sub.expenseName}</Text>
-              <Text style={styles.subExpenseType}>{sub.expenseType}</Text>
+
+            <View style={{ flex: 1 }}>
+              <Text style={styles.subExpenseType}>
+                {getCategoryName(sub.expenseCategory)}
+              </Text>
+              <Text style={styles.subExpenseName}>{sub.expenseType}</Text>
             </View>
+
             <View style={styles.amountContainer}>
-              <Text style={styles.amountText}>{sub.amount}</Text>
+              <Text style={styles.amountText}>
+                {sub.amount} {expense.currency}
+              </Text>
             </View>
           </View>
 
+          {/* EXACT FIELDS LIKE WEB */}
+          <View style={styles.webInfoBlock}>
+            <Info
+              label="Document Date"
+              value={new Date(sub.documentDate).toLocaleDateString('en-US')}
+            />
+            <Info label="Vendor" value={sub.vendor} />
+            <Info label="GL Account" value={sub.gl_account} />
+            <Info label="Description" value={sub.description} />
+          </View>
+
+          {/* APPROVALS */}
           <View style={styles.approvalSection}>
-            <View style={styles.approvalItem}>
-              <MaterialIcons
-                name={getStatusIcon(sub.managerApproval)}
-                size={20}
-                color={getStatusColor(sub.managerApproval)}
-              />
-              <View style={styles.approvalContent}>
-                <Text style={styles.approvalLabel}>Manager</Text>
-                <Text
-                  style={[
-                    styles.approvalStatus,
-                    { color: getStatusColor(sub.managerApproval) },
-                  ]}
-                >
-                  {sub.managerApproval || 'Pending'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.approvalItem}>
-              <MaterialIcons
-                name={getStatusIcon(sub.financeApproval)}
-                size={20}
-                color={getStatusColor(sub.financeApproval)}
-              />
-              <View style={styles.approvalContent}>
-                <Text style={styles.approvalLabel}>Finance</Text>
-                <Text
-                  style={[
-                    styles.approvalStatus,
-                    { color: getStatusColor(sub.financeApproval) },
-                  ]}
-                >
-                  {sub.financeApproval || 'Pending'}
-                </Text>
-              </View>
-            </View>
+            <ApprovalItem label="Manager" status={sub.managerApproval} />
+            <ApprovalItem label="Finance" status={sub.financeApproval} />
           </View>
 
+          {/* ATTACHMENTS */}
           {sub.files.length > 0 && (
             <View style={styles.attachmentsSection}>
               <View style={styles.attachmentsHeader}>
@@ -237,36 +238,24 @@ export default function ExpenseDetailsScreen() {
                   Attachments ({sub.files.length})
                 </Text>
               </View>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.attachmentsScroll}
-              >
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {sub.files.map((file, i) => {
-                  const fileExt = file.split('.').pop().toLowerCase();
-                  const isImage = ['jpg', 'jpeg', 'png'].includes(fileExt);
-                  const fileUrl = `${VITE_IMAGE_URL}/expenses/${file}`;
+                  const url = `${VITE_IMAGE_URL}/expenses/${file}`;
+                  const ext = file.split('.').pop().toLowerCase();
+                  const isImage = ['jpg', 'jpeg', 'png'].includes(ext);
 
                   return (
                     <TouchableOpacity
                       key={i}
+                      onPress={() => Linking.openURL(url)}
                       style={styles.attachmentItem}
-                      onPress={() => Linking.openURL(fileUrl)}
                     >
                       {isImage ? (
-                        <View style={styles.imageContainer}>
-                          <Image
-                            source={{ uri: fileUrl }}
-                            style={styles.attachmentImage}
-                          />
-                          <View style={styles.imageOverlay}>
-                            <MaterialIcons
-                              name="zoom-in"
-                              size={20}
-                              color="#FFFFFF"
-                            />
-                          </View>
-                        </View>
+                        <Image
+                          source={{ uri: url }}
+                          style={styles.attachmentImage}
+                        />
                       ) : (
                         <View style={styles.pdfContainer}>
                           <MaterialIcons
@@ -277,7 +266,7 @@ export default function ExpenseDetailsScreen() {
                           <Text style={styles.pdfText}>PDF</Text>
                         </View>
                       )}
-                      <Text style={styles.fileName} numberOfLines={2}>
+                      <Text numberOfLines={1} style={styles.fileName}>
                         {file}
                       </Text>
                     </TouchableOpacity>
@@ -289,456 +278,336 @@ export default function ExpenseDetailsScreen() {
         </View>
       ))}
 
-      {/* Approval Status Section */}
+      {/* APPROVAL STATUS (BOTTOM) */}
       <View style={styles.sectionHeader}>
         <MaterialIcons name="approval" size={24} color={PRIMARY_COLOR} />
         <Text style={styles.sectionTitle}>Approval Status</Text>
       </View>
 
-      <View style={[styles.approvalCard, styles.cardShadow]}>
-        {/* Manager Approval */}
-        <View style={styles.approvalBlock}>
-          <View style={styles.approvalBlockHeader}>
-            <MaterialIcons name="person" size={24} color="#6B7280" />
-            <Text style={styles.approvalBlockTitle}>Manager Approval</Text>
-            <View
-              style={[
-                styles.statusBadge,
-                {
-                  backgroundColor:
-                    getStatusColor(expense.managerApproval?.approved) + '20',
-                },
-              ]}
-            >
-              <MaterialIcons
-                name={getStatusIcon(expense.managerApproval?.approved)}
-                size={16}
-                color={getStatusColor(expense.managerApproval?.approved)}
-              />
-              <Text
-                style={[
-                  styles.statusBadgeText,
-                  { color: getStatusColor(expense.managerApproval?.approved) },
-                ]}
-              >
-                {expense.managerApproval?.approved
-                  ?.replace(/_/g, ' ')
-                  .replace(/\b\w/g, char => char.toUpperCase()) || 'Pending'}
-              </Text>
-            </View>
-          </View>
+      {/* MANAGER APPROVAL */}
+      <ApprovalBlock title="Manager Approval" data={expense.managerApproval} />
 
-          <View style={styles.approvalDetails}>
-            <View style={styles.approvalDetailRow}>
-              <Text style={styles.approvalDetailLabel}>Reviewed By:</Text>
-              <Text style={styles.approvalDetailValue}>
-                {expense.managerApproval?.reviewedBy?.name || 'N/A'}
-              </Text>
-            </View>
-            <View style={styles.approvalDetailRow}>
-              <Text style={styles.approvalDetailLabel}>Remark:</Text>
-              <Text style={styles.approvalDetailValue}>
-                {expense.managerApproval?.remark || 'No remarks'}
-              </Text>
-            </View>
-          </View>
-        </View>
+      {/* FINANCE APPROVAL */}
+      <ApprovalBlock title="Finance Approval" data={expense.financeApproval} />
 
-        <View style={styles.divider} />
-
-        {/* Finance Approval */}
-        <View style={styles.approvalBlock}>
-          <View style={styles.approvalBlockHeader}>
-            <MaterialIcons name="account-balance" size={24} color="#6B7280" />
-            <Text style={styles.approvalBlockTitle}>Finance Approval</Text>
-            <View
-              style={[
-                styles.statusBadge,
-                {
-                  backgroundColor:
-                    getStatusColor(expense.financeApproval?.approved) + '20',
-                },
-              ]}
-            >
-              <MaterialIcons
-                name={getStatusIcon(expense.financeApproval?.approved)}
-                size={16}
-                color={getStatusColor(expense.financeApproval?.approved)}
-              />
-              <Text
-                style={[
-                  styles.statusBadgeText,
-                  { color: getStatusColor(expense.financeApproval?.approved) },
-                ]}
-              >
-                {expense.financeApproval?.approved
-                  ?.replace(/_/g, ' ')
-                  .replace(/\b\w/g, char => char.toUpperCase()) || 'Pending'}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.approvalDetails}>
-            <View style={styles.approvalDetailRow}>
-              <Text style={styles.approvalDetailLabel}>Reviewed By:</Text>
-              <Text style={styles.approvalDetailValue}>
-                {expense.financeApproval?.reviewedBy?.name || 'N/A'}
-              </Text>
-            </View>
-            <View style={styles.approvalDetailRow}>
-              <Text style={styles.approvalDetailLabel}>Remark:</Text>
-              <Text style={styles.approvalDetailValue}>
-                {expense.financeApproval?.remark || 'No remarks'}
-              </Text>
-            </View>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.bottomSpacing} />
+      <View style={{ height: 40 }} />
     </ScrollView>
   );
 }
 
+/* ---------------- COMPONENTS ---------------- */
+
+const Info = ({ label, value }) => (
+  <View style={styles.webRow}>
+    <Text style={styles.webLabel}>{label}</Text>
+    <Text style={styles.webValue}>{value || 'N/A'}</Text>
+  </View>
+);
+
+const ApprovalItem = ({ label, status }) => (
+  <View style={styles.approvalItem}>
+    <MaterialIcons
+      name={
+        status === 'approved'
+          ? 'check-circle'
+          : status === 'rejected'
+          ? 'cancel'
+          : 'schedule'
+      }
+      size={20}
+      color={STATUS_COLORS[status]}
+    />
+    <View style={{ marginLeft: 8 }}>
+      <Text style={styles.approvalLabel}>{label}</Text>
+      <Text style={[styles.approvalStatus, { color: STATUS_COLORS[status] }]}>
+        {status || 'Pending'}
+      </Text>
+    </View>
+  </View>
+);
+
+const ApprovalBlock = ({ title, data }) => (
+  <View style={[styles.approvalCard, styles.cardShadow]}>
+    <View style={styles.approvalBlockHeader}>
+      <MaterialIcons name="check" size={22} color="#6B7280" />
+      <Text style={styles.approvalBlockTitle}>{title}</Text>
+      <View
+        style={[
+          styles.statusBadge,
+          { backgroundColor: getStatusColor(data?.approved) + '20' },
+        ]}
+      >
+        <MaterialIcons
+          name={getStatusColor(data?.approved)}
+          size={16}
+          color={getStatusColor(data?.approved)}
+        />
+        <Text
+          style={[
+            styles.statusBadgeText,
+            { color: getStatusColor(data?.approved) },
+          ]}
+        >
+          {data?.approved
+            ?.replace(/_/g, ' ')
+            .replace(/\b\w/g, c => c.toUpperCase())}
+        </Text>
+      </View>
+    </View>
+
+    <View style={styles.approvalDetails}>
+      <Info label="Reviewed By" value={data?.reviewedBy?.name} />
+      <Info
+        label="Reviewed At"
+        value={
+          data?.reviewedAt
+            ? new Date(data.reviewedAt).toLocaleString('en-US', {
+                month: '2-digit',
+                day: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : 'N/A'
+        }
+      />
+      <Info label="Remark" value={data?.remark || 'No remarks'} />
+    </View>
+  </View>
+);
+
+/* ---------------- STYLES ---------------- */
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-  },
+  container: { flex: 1, backgroundColor: '#F9FAFB' },
+
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
   loadingContainer: {
     padding: 32,
     borderRadius: 16,
     alignItems: 'center',
-    margin: 20,
   },
-  loadingText: {
-    marginTop: 16,
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+
+  loadingText: { color: '#FFF', marginTop: 16 },
+
   errorText: {
     marginTop: 16,
     color: '#EF4444',
     fontSize: 18,
     fontWeight: '600',
   },
+
   headerGradient: {
-    padding: 24,
-    paddingTop: 40,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    marginBottom: 16,
+    padding: 20,
+    paddingTop: 60,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    marginBottom: 20,
   },
+
   headerTitle: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '700',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 12,
+    color: '#FFF',
+    marginBottom: 10,
   },
+
   headerStatusContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    marginTop: 12,
     alignSelf: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
   },
+
   headerStatus: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
     marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFF',
   },
-  cardShadow: {
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
+
   mainCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: '#FFF',
+    borderRadius: 12,
     padding: 20,
     marginHorizontal: 16,
-    marginBottom: 20,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginLeft: 12,
-  },
-  infoRow: {
-    flexDirection: 'row',
+    marginTop: -40,
     marginBottom: 16,
   },
-  infoItem: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginRight: 16,
-  },
-  infoContent: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  infoValue: {
-    fontSize: 16,
+
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+
+  cardTitle: {
+    marginLeft: 10,
+    fontSize: 18,
+    fontWeight: '700',
     color: '#1F2937',
-    fontWeight: '600',
   },
+
+  webRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  webLabel: { fontSize: 14, color: '#6B7280', flex: 1 },
+  webValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    maxWidth: '50%',
+    textAlign: 'right',
+  },
+
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginHorizontal: 16,
+    marginTop: 24,
     marginBottom: 12,
-    marginTop: 8,
   },
+
   sectionTitle: {
-    fontSize: 22,
+    marginLeft: 10,
+    fontSize: 18,
     fontWeight: '700',
     color: '#1F2937',
-    marginLeft: 12,
   },
+
   subExpenseCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: '#FFF',
+    borderRadius: 12,
     padding: 20,
     marginHorizontal: 16,
     marginBottom: 16,
   },
+
   subExpenseHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
   },
+
   subExpenseNumber: {
     width: 32,
     height: 32,
     borderRadius: 16,
     backgroundColor: PRIMARY_COLOR,
-    alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    alignItems: 'center',
+    marginRight: 16,
   },
-  subExpenseNumberText: {
-    color: '#FFFFFF',
+
+  subExpenseNumberText: { color: '#FFF', fontWeight: '700', fontSize: 16 },
+
+  subExpenseType: { fontSize: 13, color: '#6B7280' },
+
+  subExpenseName: {
     fontSize: 16,
     fontWeight: '700',
-  },
-  subExpenseHeaderContent: {
-    flex: 1,
-  },
-  subExpenseName: {
-    fontSize: 18,
-    fontWeight: '700',
     color: '#1F2937',
-    marginBottom: 4,
+    marginTop: 2,
   },
-  subExpenseType: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
-    textTransform: 'capitalize',
-  },
+
   amountContainer: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#ECFDF5',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
   },
-  amountText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#15803D',
-  },
-  approvalSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
+
+  amountText: { fontWeight: '700', color: '#059669', fontSize: 15 },
+
+  webInfoBlock: { marginBottom: 16 },
+
+  approvalSection: { flexDirection: 'row', justifyContent: 'space-between' },
+
   approvalItem: {
     flex: 1,
+    backgroundColor: '#F3F4F6',
+    padding: 14,
+    borderRadius: 10,
+    marginHorizontal: 4,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    padding: 12,
-    borderRadius: 12,
-    marginHorizontal: 4,
   },
-  approvalContent: {
-    marginLeft: 8,
-  },
-  approvalLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  approvalStatus: {
-    fontSize: 14,
-    fontWeight: '600',
-    textTransform: 'capitalize',
-  },
-  attachmentsSection: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-  },
+
+  approvalLabel: { fontSize: 13, color: '#6B7280' },
+
+  approvalStatus: { fontWeight: '700', fontSize: 15, marginLeft: 8 },
+
+  attachmentsSection: { marginTop: 16 },
+
   attachmentsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+
+  attachmentsTitle: { marginLeft: 8, fontWeight: '700', fontSize: 16 },
+
+  attachmentItem: { marginRight: 12, width: 100, alignItems: 'center' },
+
+  attachmentImage: { width: 80, height: 80, borderRadius: 10 },
+
+  pdfContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+  },
+
+  pdfText: { color: '#EF4444', fontSize: 10 },
+
+  fileName: { marginTop: 6, fontSize: 12, textAlign: 'center' },
+
+  approvalCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 20,
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+
+  approvalBlockHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
   },
-  attachmentsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-    marginLeft: 8,
-  },
-  attachmentsScroll: {
-    marginTop: 8,
-  },
-  attachmentItem: {
-    marginRight: 12,
-    alignItems: 'center',
-    width: 100,
-  },
-  imageContainer: {
-    position: 'relative',
-  },
-  attachmentImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-  },
-  imageOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pdfContainer: {
-    width: 80,
-    height: 80,
-    backgroundColor: '#FEF2F2',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-  },
-  pdfText: {
-    fontSize: 10,
-    color: '#EF4444',
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  fileName: {
-    fontSize: 12,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 16,
-  },
-  approvalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 16,
-    marginBottom: 20,
-  },
-  approvalBlock: {
-    marginBottom: 8,
-  },
-  approvalBlockHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
+
   approvalBlockTitle: {
+    marginLeft: 12,
     fontSize: 18,
     fontWeight: '700',
-    color: '#1F2937',
-    marginLeft: 12,
     flex: 1,
+    color: '#1F2937',
   },
+
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 20,
   },
-  statusBadgeText: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 4,
-    textTransform: 'capitalize',
-  },
-  approvalDetails: {
-    marginLeft: 36,
-  },
-  approvalDetailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  approvalDetailLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
-    flex: 1,
-  },
-  approvalDetailValue: {
-    fontSize: 14,
-    color: '#1F2937',
-    fontWeight: '600',
-    flex: 2,
-    textAlign: 'right',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginVertical: 20,
-  },
-  bottomSpacing: {
-    height: 20,
+
+  statusBadgeText: { marginLeft: 6, fontWeight: '700', fontSize: 13 },
+
+  approvalDetails: { marginTop: 16 },
+  cardShadow: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 3,
   },
 });

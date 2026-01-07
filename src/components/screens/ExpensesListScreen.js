@@ -1,180 +1,60 @@
+/* eslint-disable react/no-unstable-nested-components */
+/* eslint-disable react-native/no-inline-styles */
 import { VITE_API_URL } from '@env';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import {
-  BORDER_RADIUS,
-  COLORS,
-  COMPONENT_STYLES,
-  LAYOUT,
-  SHADOWS,
-  SPACING,
-  STATUS_COLORS,
-  TYPOGRAPHY,
-} from '../theme/theme';
+import { COLORS, COMPONENT_STYLES } from '../theme/theme';
 
-// API call
+/* -------------------- API -------------------- */
 const fetchExpenses = async () => {
   const { data } = await axios.get(`${VITE_API_URL}/expenses/user-expenses`, {
     withCredentials: true,
   });
 
   return data.success
-    ? data.data.map((expense, index) => ({
-        id: expense._id || index + 1,
-        title: expense.expenseName,
-        managerApproval: expense.managerApproval?.approved || 'pending',
-        financeApproval: expense.financeApproval?.approved || 'pending',
-        status: expense.status || 'pending',
-        isDraft: expense.isDraft,
-        createdAt: expense.createdAt,
-        totalAmount: expense.totalAmount,
+    ? data.data.map((e, index) => ({
+        id: e._id || index + 1,
+        title: e.expenseName,
+        managerApproval: e.managerApproval?.approved || 'pending',
+        financeApproval: e.financeApproval?.approved || 'pending',
+        status: e.status || 'pending',
+        isDraft: e.isDraft,
+        createdAt: e.createdAt,
+        totalAmount: e.totalAmount,
       }))
     : [];
 };
 
-// Enhanced status styling functions
-const getStatusStyle = status => {
-  const statusColors = {
-    draft: {
-      backgroundColor: COLORS.neutral[100],
-      color: COLORS.neutral[600],
-      borderColor: COLORS.neutral[300],
-    },
-    pending: {
-      backgroundColor: COLORS.warning[50],
-      color: COLORS.warning[800],
-      borderColor: COLORS.warning[200],
-    },
-    resubmission: {
-      backgroundColor: COLORS.warning[100],
-      color: COLORS.warning[900],
-      borderColor: COLORS.warning[300],
-    },
-    manager_approved: {
-      backgroundColor: COLORS.info[50],
-      color: COLORS.info[800],
-      borderColor: COLORS.info[200],
-    },
-    finance_approved: {
-      backgroundColor: COLORS.success[50],
-      color: COLORS.success[800],
-      borderColor: COLORS.success[200],
-    },
-    approved: {
-      backgroundColor: COLORS.success[50],
-      color: COLORS.success[800],
-      borderColor: COLORS.success[200],
-    },
-    rejected: {
-      backgroundColor: COLORS.error[50],
-      color: COLORS.error[800],
-      borderColor: COLORS.error[200],
-    },
-    manager_partially_approved: {
-      backgroundColor: COLORS.primary[50],
-      color: COLORS.primary[800],
-      borderColor: COLORS.primary[200],
-    },
-    finance_partially_approved: {
-      backgroundColor: COLORS.success[100],
-      color: COLORS.success[900],
-      borderColor: COLORS.success[300],
-    },
-    partially_approved: {
-      backgroundColor: COLORS.primary[50],
-      color: COLORS.primary[800],
-      borderColor: COLORS.primary[200],
-    },
-    in_progress: {
-      backgroundColor: COLORS.info[50],
-      color: COLORS.info[800],
-      borderColor: COLORS.info[200],
-    },
-  };
-  return (
-    statusColors[status] || {
-      backgroundColor: COLORS.neutral[100],
-      color: COLORS.neutral[600],
-      borderColor: COLORS.neutral[300],
-    }
-  );
-};
+const FILTER_TABS = [
+  { key: 'all', label: 'All' },
+  { key: 'approved', label: 'Approved' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'resubmission', label: 'Resubmission' },
+  { key: 'saved', label: 'Saved' },
+];
 
-// Enhanced approval styling
-const getApprovalStyle = approvalStatus => {
-  const approvalColors = {
-    approved: {
-      backgroundColor: COLORS.success[50],
-      color: COLORS.success[800],
-      borderColor: COLORS.success[200],
-    },
-    rejected: {
-      backgroundColor: COLORS.error[50],
-      color: COLORS.error[800],
-      borderColor: COLORS.error[200],
-    },
-    resubmission: {
-      backgroundColor: COLORS.warning[50],
-      color: COLORS.warning[800],
-      borderColor: COLORS.warning[200],
-    },
-    pending: {
-      backgroundColor: COLORS.warning[50],
-      color: COLORS.warning[800],
-      borderColor: COLORS.warning[200],
-    },
-    partially_approved: {
-      backgroundColor: COLORS.primary[50],
-      color: COLORS.primary[800],
-      borderColor: COLORS.primary[200],
-    },
-  };
-  return (
-    approvalColors[approvalStatus] || {
-      backgroundColor: COLORS.neutral[100],
-      color: COLORS.neutral[600],
-      borderColor: COLORS.neutral[300],
-    }
-  );
-};
-
-// Format status text for display
-const formatStatusText = status => {
-  if (!status) return 'Pending';
-  return status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-};
-
-// Get status icon
-const getStatusIcon = status => {
-  switch (status) {
-    case 'approved':
-      return 'check-circle';
-    case 'rejected':
-      return 'cancel';
-    case 'partially_approved':
-      return 'warning';
-    case 'resubmission':
-      return 'refresh';
-    case 'draft':
-      return 'edit';
-    default:
-      return 'schedule';
-  }
-};
+const formatStatusText = t =>
+  t ? t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Pending';
 
 export default function ExpensesListScreen() {
   const navigation = useNavigation();
+
+  const [activeTab, setActiveTab] = useState('all');
+  const [search, setSearch] = useState('');
 
   const {
     data = [],
@@ -184,37 +64,41 @@ export default function ExpensesListScreen() {
   } = useQuery({
     queryKey: ['expenses'],
     queryFn: fetchExpenses,
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
   });
 
-  const getColor = value => STATUS_COLORS[value] || STATUS_COLORS.pending;
+  /* -------------------- FILTER LOGIC -------------------- */
+  const filteredData = useMemo(() => {
+    let res = [...data];
 
-  const renderEmptyState = () => (
-    <View style={styles.emptyContainer}>
-      <View style={styles.emptyIconContainer}>
-        <MaterialIcons
-          name="receipt-long"
-          size={64}
-          color={COLORS.neutral[400]}
-        />
-      </View>
-      <Text style={styles.emptyTitle}>No Expenses Found</Text>
-      <Text style={styles.emptySubtitle}>
-        Start by creating your first expense report to track your business
-        expenses
-      </Text>
-      <TouchableOpacity
-        style={styles.emptyButton}
-        onPress={() => navigation.navigate('AddExpense')}
-        activeOpacity={0.8}
-      >
-        <MaterialIcons name="add" size={20} color={COLORS.background.primary} />
-        <Text style={styles.emptyButtonText}>Create First Expense</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    if (activeTab === 'approved') {
+      res = res.filter(
+        e =>
+          e.managerApproval === 'approved' && e.financeApproval === 'approved',
+      );
+    } else if (activeTab === 'pending') {
+      res = res.filter(
+        e =>
+          (e.managerApproval === 'pending' ||
+            e.financeApproval === 'pending') &&
+          e.status !== 'resubmission' &&
+          e.status !== 'rejected',
+      );
+    } else if (activeTab === 'resubmission') {
+      res = res.filter(e => e.status === 'resubmission');
+    } else if (activeTab === 'saved') {
+      res = res.filter(e => e.isDraft);
+    }
 
+    if (search.trim()) {
+      res = res.filter(e =>
+        e.title.toLowerCase().includes(search.toLowerCase()),
+      );
+    }
+
+    return res;
+  }, [data, activeTab, search]);
+
+  /* -------------------- RENDER EACH ROW -------------------- */
   const renderItem = ({ item }) => (
     <TouchableOpacity
       style={styles.card}
@@ -223,70 +107,29 @@ export default function ExpensesListScreen() {
           id: item.id,
         })
       }
-      activeOpacity={0.95}
     >
       <View style={styles.cardHeader}>
-        <View style={styles.titleContainer}>
-          <Text style={styles.title} numberOfLines={2}>
-            {item.title}
-          </Text>
-          {item.isDraft && (
-            <View style={styles.draftBadge}>
-              <MaterialIcons
-                name="edit"
-                size={12}
-                color={COLORS.background.primary}
-              />
-              <Text style={styles.draftText}>DRAFT</Text>
-            </View>
-          )}
-        </View>
+        <Text style={styles.cardTitle}>{item.title}</Text>
         {item.totalAmount && (
-          <View style={styles.amountContainer}>
-            <Text style={styles.amountLabel}>Total</Text>
-            <Text style={styles.amount}>${item.totalAmount}</Text>
-          </View>
+          <Text style={styles.amount}>₹{item.totalAmount}</Text>
         )}
       </View>
 
-      <View style={styles.statusContainer}>
-        <StatusRow
-          icon={getStatusIcon(item.managerApproval)}
-          label="Manager"
-          status={item.managerApproval}
-          style={getApprovalStyle(item.managerApproval)}
-        />
-        <StatusRow
-          icon={getStatusIcon(item.financeApproval)}
-          label="Finance"
-          status={item.financeApproval}
-          style={getApprovalStyle(item.financeApproval)}
-        />
+      <View style={{ marginTop: 8 }}>
+        <Text style={styles.statusText}>
+          Manager: {formatStatusText(item.managerApproval)}
+        </Text>
+        <Text style={styles.statusText}>
+          Finance: {formatStatusText(item.financeApproval)}
+        </Text>
       </View>
 
       <View style={styles.cardFooter}>
-        <View style={[styles.statusBadge, getStatusStyle(item.status)]}>
-          <MaterialIcons
-            name={getStatusIcon(item.status)}
-            size={14}
-            color={getStatusStyle(item.status).color}
-          />
-          <Text
-            style={[
-              styles.statusText,
-              { color: getStatusStyle(item.status).color },
-            ]}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {formatStatusText(item.status)}
-          </Text>
-        </View>
+        <Text style={styles.footerStatus}>{formatStatusText(item.status)}</Text>
 
-        <View style={styles.actionContainer}>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
           <TouchableOpacity
-            style={[styles.actionButton, styles.viewButton]}
-            activeOpacity={0.7}
+            style={[styles.footerBtn, { backgroundColor: COLORS.primary[600] }]}
             onPress={() =>
               navigation.navigate(
                 item.isDraft ? 'AddExpense' : 'ExpenseDetails',
@@ -294,425 +137,204 @@ export default function ExpensesListScreen() {
               )
             }
           >
-            <MaterialIcons
-              name="visibility"
-              size={16}
-              color={COLORS.background.primary}
-            />
-            <Text style={styles.buttonText}>View</Text>
+            <MaterialIcons name="visibility" size={16} color="#fff" />
+            <Text style={styles.btnText}>View</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, styles.editButton]}
-            activeOpacity={0.7}
+            style={[styles.footerBtn, { backgroundColor: '#555' }]}
             onPress={() => navigation.navigate('EditExpense', { id: item.id })}
           >
-            <MaterialIcons
-              name="edit"
-              size={16}
-              color={COLORS.background.primary}
-            />
-            <Text style={styles.buttonText}>Edit</Text>
+            <MaterialIcons name="edit" size={16} color="#fff" />
+            <Text style={styles.btnText}>Edit</Text>
           </TouchableOpacity>
         </View>
       </View>
     </TouchableOpacity>
   );
 
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <View style={styles.headerContent}>
-        <Text style={styles.headerTitle}>My Expenses</Text>
-        <Text style={styles.headerSubtitle}>
-          {data.length} {data.length === 1 ? 'expense' : 'expenses'} found
-        </Text>
-      </View>
+  /* -------------------- HEADER RENDER -------------------- */
+  const ListHeader = () => (
+    <View>
+      {/* Search */}
+      <TextInput
+        placeholder="Search expenses..."
+        value={search}
+        onChangeText={setSearch}
+        style={styles.search}
+      />
 
-      <TouchableOpacity
-        style={styles.addButton}
-        activeOpacity={0.8}
-        onPress={() => navigation.navigate('AddExpense')}
+      {/* Tabs */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{
+          height: 40,
+          backgroundColor: COLORS.background.secondary,
+        }}
+        contentContainerStyle={{
+          alignItems: 'center',
+          paddingHorizontal: 15,
+        }}
       >
-        <MaterialIcons name="add" size={20} color={COLORS.background.primary} />
-        <Text style={styles.addButtonText}>Add Expense</Text>
-      </TouchableOpacity>
+        {FILTER_TABS.map(tab => (
+          <TouchableOpacity
+            key={tab.key}
+            onPress={() => setActiveTab(tab.key)}
+            style={[
+              styles.tabBtn,
+              activeTab === tab.key && styles.activeTabBtn,
+            ]}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === tab.key && styles.activeTabText,
+              ]}
+            >
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {/* Page Header */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>My Expenses</Text>
+          <Text style={styles.headerSubtitle}>
+            {filteredData.length} result(s)
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => navigation.navigate('AddExpense')}
+        >
+          <MaterialIcons name="add" size={20} color="#fff" />
+          <Text style={styles.addButtonText}>Add Expense</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
-  // Enhanced loading state
-  if (isLoading) {
+  /* -------------------- LOADING & ERROR -------------------- */
+  if (isLoading)
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary[600]} />
-        <Text style={styles.loadingText}>Loading your expenses...</Text>
+      <View style={styles.center}>
+        <ActivityIndicator size="large" />
       </View>
     );
-  }
 
-  // Enhanced error state
-  if (error) {
+  if (error)
     return (
-      <View style={styles.errorContainer}>
-        <View style={styles.errorIconContainer}>
-          <MaterialIcons
-            name="error-outline"
-            size={48}
-            color={COLORS.error[500]}
-          />
-        </View>
-        <Text style={styles.errorTitle}>Something went wrong</Text>
-        <Text style={styles.errorMessage}>
-          {error.message || 'Unable to load expenses. Please try again.'}
-        </Text>
-        <TouchableOpacity
-          style={styles.retryButton}
-          onPress={refetch}
-          activeOpacity={0.8}
-        >
-          <MaterialIcons
-            name="refresh"
-            size={20}
-            color={COLORS.background.primary}
-          />
-          <Text style={styles.retryButtonText}>Try Again</Text>
-        </TouchableOpacity>
+      <View style={styles.center}>
+        <Text style={{ color: 'red' }}>Error loading expenses</Text>
       </View>
     );
-  }
 
+  /* -------------------- FINAL UI -------------------- */
   return (
     <View style={styles.container}>
       <FlatList
-        data={data}
+        data={filteredData}
         keyExtractor={item => item.id.toString()}
         renderItem={renderItem}
-        ListHeaderComponent={renderHeader}
-        ListEmptyComponent={renderEmptyState}
-        contentContainerStyle={[
-          styles.listContainer,
-          data.length === 0 && styles.emptyListContainer,
-        ]}
-        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={<ListHeader />}
+        contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={
-          <RefreshControl
-            refreshing={isLoading}
-            onRefresh={refetch}
-            colors={[COLORS.primary[600]]}
-            tintColor={COLORS.primary[600]}
-          />
+          <RefreshControl refreshing={isLoading} onRefresh={refetch} />
         }
       />
     </View>
   );
 }
 
-// Enhanced Status Row Component
-const StatusRow = ({ icon, label, status, style }) => (
-  <View style={styles.statusRow}>
-    <View style={styles.statusIconContainer}>
-      <MaterialIcons name={icon} size={16} color={style.color} />
-    </View>
-    <Text style={styles.statusLabel}>{label}:</Text>
-    <View style={[styles.statusBadgeSmall, style]}>
-      <Text style={[styles.statusLabelText, { color: style.color }]}>
-        {formatStatusText(status)}
-      </Text>
-    </View>
-  </View>
-);
-
+/* -------------------- STYLES -------------------- */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background.secondary,
   },
 
-  // Loading & Error States
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background.secondary,
-    padding: SPACING.xl,
-  },
-  loadingText: {
-    marginTop: SPACING.md,
-    fontSize: TYPOGRAPHY.fontSize.base,
-    color: COLORS.text.secondary,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background.secondary,
-    padding: SPACING.xl,
-  },
-  errorIconContainer: {
-    marginBottom: SPACING.md,
-  },
-  errorTitle: {
-    fontSize: TYPOGRAPHY.fontSize.xl,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.text.primary,
-    marginBottom: SPACING.sm,
-    textAlign: 'center',
-  },
-  errorMessage: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    color: COLORS.text.secondary,
-    textAlign: 'center',
-    marginBottom: SPACING['2xl'],
-    lineHeight: TYPOGRAPHY.fontSize.base * TYPOGRAPHY.lineHeight.relaxed,
-  },
-  retryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.error[500],
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.md,
-    borderRadius: BORDER_RADIUS.lg,
-    ...SHADOWS.md,
-  },
-  retryButtonText: {
-    color: COLORS.background.primary,
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    marginLeft: SPACING.sm,
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
+  search: {
+    backgroundColor: '#fff',
+    margin: 15,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#ddd',
   },
 
-  // List Container
-  listContainer: {
-    padding: LAYOUT.screenPadding,
-    paddingBottom: SPACING['6xl'],
+  /* Tabs */
+  tabBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 20,
+    marginRight: 10,
   },
-  emptyListContainer: {
-    flexGrow: 1,
-  },
+  activeTabBtn: { backgroundColor: COLORS.primary[600] },
+  tabText: { color: '#555', fontWeight: '600' },
+  activeTabText: { color: '#fff' },
 
-  // Header
+  /* Header */
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.xl,
-    paddingBottom: SPACING.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border.light,
+    paddingHorizontal: 15,
+    paddingTop: 10,
+    marginBottom: 10,
   },
-  headerContent: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: TYPOGRAPHY.fontSize['3xl'],
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.text.primary,
-    marginBottom: SPACING.xs,
-  },
-  headerSubtitle: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    color: COLORS.text.secondary,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
-  },
+  headerTitle: { fontSize: 24, fontWeight: '700' },
+  headerSubtitle: { color: '#777' },
   addButton: {
     flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: COLORS.primary[600],
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    borderRadius: BORDER_RADIUS.xl,
-    ...SHADOWS.md,
-  },
-  addButtonText: {
-    color: COLORS.background.primary,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    fontSize: TYPOGRAPHY.fontSize.base,
-    marginLeft: SPACING.sm,
-  },
-
-  // Empty State
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 10,
     alignItems: 'center',
-    paddingHorizontal: SPACING['2xl'],
   },
-  emptyIconContainer: {
-    marginBottom: SPACING.lg,
-    padding: SPACING.xl,
-    backgroundColor: COLORS.neutral[50],
-    borderRadius: BORDER_RADIUS.full,
-  },
-  emptyTitle: {
-    fontSize: TYPOGRAPHY.fontSize['2xl'],
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.text.primary,
-    marginBottom: SPACING.sm,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    color: COLORS.text.secondary,
-    textAlign: 'center',
-    marginBottom: SPACING['3xl'],
-    lineHeight: TYPOGRAPHY.fontSize.base * TYPOGRAPHY.lineHeight.relaxed,
-  },
-  emptyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.primary[600],
-    paddingHorizontal: SPACING['2xl'],
-    paddingVertical: SPACING.lg,
-    borderRadius: BORDER_RADIUS.xl,
-    ...SHADOWS.lg,
-  },
-  emptyButtonText: {
-    color: COLORS.background.primary,
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    marginLeft: SPACING.sm,
-  },
+  addButtonText: { color: '#fff', marginLeft: 5, fontWeight: '600' },
 
-  // Card
+  /* Cards */
   card: {
     ...COMPONENT_STYLES.card.elevated,
-    marginBottom: SPACING.lg,
-    borderWidth: 1,
-    borderColor: COLORS.border.light,
+    marginHorizontal: 15,
+    marginBottom: 15,
+    padding: 15,
   },
+
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: SPACING.lg,
   },
-  titleContainer: {
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
     flex: 1,
-    marginRight: SPACING.md,
   },
-  title: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.text.primary,
-    marginBottom: SPACING.sm,
-    lineHeight: TYPOGRAPHY.fontSize.lg * TYPOGRAPHY.lineHeight.normal,
-  },
-  draftBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.warning[500],
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    borderRadius: BORDER_RADIUS.sm,
-    alignSelf: 'flex-start',
-  },
-  draftText: {
-    color: COLORS.background.primary,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    letterSpacing: 0.5,
-    marginLeft: SPACING.xs,
-  },
-  amountContainer: {
-    alignItems: 'flex-end',
-  },
-  amountLabel: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.text.tertiary,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
-    marginBottom: SPACING.xs,
-  },
-  amount: {
-    fontSize: TYPOGRAPHY.fontSize.xl,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.primary[600],
-  },
+  amount: { fontSize: 18, fontWeight: '700', color: COLORS.primary[600] },
 
-  // Status Container
-  statusContainer: {
-    marginBottom: SPACING.lg,
-    gap: SPACING.sm,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  statusIconContainer: {
-    width: 20,
-    alignItems: 'center',
-  },
-  statusLabel: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
-    color: COLORS.text.secondary,
-    minWidth: 60,
-  },
-  statusBadgeSmall: {
-    flex: 1,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-  },
-  statusLabelText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
-    textTransform: 'capitalize',
-  },
+  statusText: { color: '#444', marginTop: 2 },
 
-  // Card Footer
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: SPACING.lg,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border.light,
-    gap: SPACING.md, // Add gap between status badge and action container
+    marginTop: 12,
   },
-  statusBadge: {
+  footerStatus: { fontWeight: '700', color: '#555' },
+
+  footerBtn: {
     flexDirection: 'row',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: BORDER_RADIUS.full,
-    borderWidth: 1,
-    flexShrink: 1, // Allow the badge to shrink if needed
   },
-  statusText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    marginLeft: SPACING.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    flexShrink: 1, // Allow text to shrink and enable ellipsizeMode
-  },
-  actionContainer: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    alignItems: 'center',
-    flexGrow: 0, // Prevent the container from growing
-    flexShrink: 0, // Prevent the container from shrinking
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderRadius: BORDER_RADIUS.lg,
-    ...SHADOWS.sm,
-  },
-  viewButton: {
-    backgroundColor: COLORS.primary[600],
-  },
-  editButton: {
-    backgroundColor: COLORS.neutral[500],
-  },
-  buttonText: {
-    color: COLORS.background.primary,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    marginLeft: SPACING.xs,
-  },
+  btnText: { color: '#fff', marginLeft: 4, fontWeight: '600' },
 });
