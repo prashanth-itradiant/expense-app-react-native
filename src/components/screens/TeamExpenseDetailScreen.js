@@ -1,11 +1,11 @@
-import { VITE_API_URL, VITE_IMAGE_URL } from '@env';
+import { VITE_API_URL } from '@env';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,6 +24,7 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../theme/theme';
+import { openFile } from '../utils/openFile';
 
 const TeamExpenseDetails = () => {
   const navigation = useNavigation();
@@ -391,7 +392,6 @@ const DetailRow = ({ label, value }) => (
 // Enhanced Sub-Expense Card Component
 const SubExpenseCard = ({
   subExpense,
-  index,
   user,
   expense,
   selectedSubExpenses,
@@ -415,29 +415,43 @@ const SubExpenseCard = ({
 
   return (
     <View style={[styles.subExpenseCard, isSelected && styles.selectedCard]}>
+      {/* HEADER */}
       <View style={styles.subExpenseHeader}>
         {canSelect && (
           <TouchableOpacity
             style={[styles.checkbox, isSelected && styles.checkboxSelected]}
             onPress={() => onToggleSelection(subExpense._id)}
-            activeOpacity={0.7}
           >
             {isSelected && (
-              <MaterialIcons
-                name="check"
-                size={16}
-                color={COLORS.background.primary}
-              />
+              <MaterialIcons name="check" size={16} color="#FFF" />
             )}
           </TouchableOpacity>
         )}
-        <View style={styles.subExpenseInfo}>
-          <Text style={styles.subExpenseName}>{subExpense.expenseName}</Text>
+
+        <View style={{ flex: 1 }}>
           <Text style={styles.subExpenseType}>{subExpense.expenseType}</Text>
+          <Text style={styles.subExpenseCategory}>
+            Category: {subExpense.expenseCategory}
+          </Text>
         </View>
-        <Text style={styles.subExpenseAmount}>${subExpense.amount}</Text>
+
+        <Text style={styles.subExpenseAmount}>
+          {subExpense.amount} {expense.currency}
+        </Text>
       </View>
 
+      {/* DETAILS */}
+      <View style={{ marginBottom: SPACING.md }}>
+        <DetailRow
+          label="Document Date"
+          value={new Date(subExpense.documentDate).toLocaleDateString()}
+        />
+        <DetailRow label="Vendor" value={subExpense.vendor || '—'} />
+        <DetailRow label="GL Account" value={subExpense.gl_account || '—'} />
+        <DetailRow label="Description" value={subExpense.description || '—'} />
+      </View>
+
+      {/* APPROVAL STATUS */}
       <View style={styles.approvalSection}>
         <ApprovalStatus
           label="Manager Approval"
@@ -453,28 +467,44 @@ const SubExpenseCard = ({
         />
       </View>
 
-      {subExpense.files.length > 0 && (
+      {/* ATTACHMENTS */}
+      {subExpense.files?.length > 0 && (
         <View style={styles.attachmentsSection}>
-          <Text style={styles.attachmentsLabel}>Attachments</Text>
-          <View style={styles.attachmentsList}>
-            {subExpense.files.map((file, i) => (
-              <TouchableOpacity
-                key={i}
-                style={styles.attachmentItem}
-                onPress={() =>
-                  Linking.openURL(`${VITE_IMAGE_URL}/expenses/${file}`)
-                }
-                activeOpacity={0.7}
-              >
-                <MaterialIcons
-                  name="attachment"
-                  size={16}
-                  color={COLORS.primary[600]}
-                />
-                <Text style={styles.attachmentText}>{file}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <Text style={styles.attachmentsTitle}>
+            Attachments ({subExpense.files.length})
+          </Text>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {subExpense.files.map(file => {
+              const isImage = file?.type?.startsWith('image/');
+              return (
+                <TouchableOpacity
+                  key={file._id}
+                  onPress={() => openFile(file)}
+                  style={styles.attachmentItem}
+                >
+                  {isImage ? (
+                    <Image
+                      source={{ uri: file.url }}
+                      style={styles.attachmentImage}
+                    />
+                  ) : (
+                    <View style={styles.pdfContainer}>
+                      <MaterialIcons
+                        name="picture-as-pdf"
+                        size={32}
+                        color="#EF4444"
+                      />
+                    </View>
+                  )}
+
+                  <Text numberOfLines={1} style={styles.fileName}>
+                    {file.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </View>
       )}
     </View>
@@ -663,6 +693,47 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.medium,
   },
 
+  subExpenseCategory: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.text.tertiary,
+    marginTop: 2,
+  },
+
+  attachmentsTitle: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    marginBottom: SPACING.sm,
+    color: COLORS.text.secondary,
+  },
+
+  attachmentItem: {
+    marginRight: SPACING.md,
+    width: 100,
+    alignItems: 'center',
+  },
+
+  attachmentImage: {
+    width: 80,
+    height: 80,
+    borderRadius: BORDER_RADIUS.lg,
+  },
+
+  pdfContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: BORDER_RADIUS.lg,
+    backgroundColor: COLORS.error[50],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  fileName: {
+    marginTop: SPACING.xs,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    textAlign: 'center',
+    color: COLORS.text.primary,
+  },
+
   // Sub-Expense Card
   subExpenseCard: {
     ...COMPONENT_STYLES.card.default,
@@ -758,11 +829,7 @@ const styles = StyleSheet.create({
   attachmentsList: {
     gap: SPACING.xs,
   },
-  attachmentItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: SPACING.xs,
-  },
+
   attachmentText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.primary[600],

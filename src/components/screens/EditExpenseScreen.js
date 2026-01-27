@@ -31,10 +31,42 @@ import { CURRENCIES } from '../utils/constant'; // adjust path if needed
 
 import { VITE_API_URL, VITE_IMAGE_URL } from '@env';
 import DatePicker from 'react-native-date-picker';
+import { openFile } from '../utils/openFile';
 
 const formatDateOnly = value => {
   if (!value) return '';
   return value.split('T')[0]; // YYYY-MM-DD
+};
+
+const normalizeFileForOpen = file => {
+  // 1️⃣ Old backend (string)
+  if (typeof file === 'string') {
+    return {
+      url: `${VITE_IMAGE_URL}/expenses/${file}`,
+      name: file,
+      type: file.endsWith('.pdf') ? 'application/pdf' : 'image/*',
+    };
+  }
+
+  // 2️⃣ Azure Blob object (CURRENT BACKEND)
+  if (file?.url) {
+    return {
+      url: file.url,
+      name: file.name,
+      type: file.type || 'application/octet-stream',
+    };
+  }
+
+  // 3️⃣ Newly picked file (local)
+  if (file?.uri) {
+    return {
+      uri: Platform.OS === 'ios' ? file.uri.replace('file://', '') : file.uri,
+      name: file.name,
+      type: file.type || 'application/octet-stream',
+    };
+  }
+
+  return null;
 };
 
 const StyledPicker = ({ value, onChange, placeholder, items, disabled }) => {
@@ -281,7 +313,9 @@ export default function EditExpenseMobile() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const fileName = target;
+              const fileName =
+                typeof target === 'string' ? target : target?.name;
+
               const res = await axios.delete(
                 `${VITE_API_URL}/expenses/delete-expense-file`,
                 {
@@ -655,21 +689,28 @@ export default function EditExpenseMobile() {
               {(se.files || []).map((f, fi) => {
                 const isExisting = typeof f === 'string';
                 const fileName = isExisting ? f : f.name || 'file';
-                const fileUrl = isExisting
-                  ? `${VITE_IMAGE_URL}/expenses/${f}`
-                  : f.uri;
+                const fileUrl =
+                  typeof f === 'string'
+                    ? `${VITE_IMAGE_URL}/expenses/${f}`
+                    : f?.url || f?.uri;
+
                 const isImage = /\.(jpe?g|png|gif)$/i.test(fileName);
+
                 return (
                   <View key={fi} style={styles.fileRow}>
                     <TouchableOpacity
                       onPress={() => {
-                        // open link for existing files
-                        if (isExisting) {
-                          // open URL
-                          // Linking.openURL(fileUrl)
-                        } else {
-                          // maybe preview new file - skip
+                        const payload = normalizeFileForOpen(f);
+
+                        if (!payload) {
+                          Toast.show({
+                            type: 'error',
+                            text1: 'Invalid file',
+                          });
+                          return;
                         }
+
+                        openFile(payload);
                       }}
                       style={styles.filePreview}
                     >
@@ -685,6 +726,7 @@ export default function EditExpenseMobile() {
                           color="#EF4444"
                         />
                       )}
+
                       <Text style={styles.fileName} numberOfLines={1}>
                         {fileName}
                       </Text>
@@ -703,6 +745,7 @@ export default function EditExpenseMobile() {
                   </View>
                 );
               })}
+
               <TouchableOpacity
                 style={styles.pickBtn}
                 onPress={() => pickFiles(idx)}
