@@ -241,8 +241,10 @@ export default function FinanceBookingsScreen() {
               <View style={styles.reviewBox}>
                 <Text style={styles.reviewTitle}>Complete Booking</Text>
 
+                <Text style={styles.inputLabel}>Total Ticket Cost (₹)</Text>
+
                 <TextInput
-                  placeholder="Enter final ticket cost (₹)"
+                  placeholder="e.g. 12500"
                   keyboardType="numeric"
                   value={ticketCostById[item._id] || ''}
                   onChangeText={v =>
