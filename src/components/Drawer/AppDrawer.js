@@ -4,11 +4,16 @@ import { TouchableOpacity } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useSelector } from 'react-redux';
 
+import { useAdministrativeStatus } from '../redux/useAdministrativeStatus';
+import BookingDetailsScreen from '../screens/BookingDetailsScreen';
+import BookingFormScreen from '../screens/BookingFormScreen';
 import DepartmentListScreen from '../screens/DepartmentListScreen';
 import EditExpenseScreen from '../screens/EditExpenseScreen';
 import ExpenseDetailsScreen from '../screens/ExpenseDetailsScreen';
 import ExpenseFormScreen from '../screens/ExpenseFormScreen';
 import ExpensesListScreen from '../screens/ExpensesListScreen';
+import FinanceBookingsScreen from '../screens/FinanceBookingsScreen';
+import MyBookingsScreen from '../screens/MyBookingsScreen';
 import OrganizationalExpensesScreen from '../screens/OrganizationalExpensesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import TeamExpenseDetails from '../screens/TeamExpenseDetailScreen';
@@ -52,6 +57,61 @@ const getHeaderOptions = (navigation, title) => ({
   ),
   title,
 });
+
+// Stack for bookings
+function MyBookingsStack({ navigation }) {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        ...getHeaderOptions(navigation),
+        headerBackTitleVisible: false,
+        headerBackButtonMenuEnabled: false,
+      }}
+    >
+      <Stack.Screen
+        name="MyBookings"
+        component={MyBookingsScreen}
+        options={getHeaderOptions(navigation, 'My Bookings')}
+      />
+
+      <Stack.Screen
+        name="BookingDetails"
+        component={BookingDetailsScreen}
+        options={getHeaderOptions(navigation, 'Booking Details')}
+      />
+
+      <Stack.Screen
+        name="AddBooking"
+        component={BookingFormScreen}
+        options={getHeaderOptions(navigation, 'Add Booking')}
+      />
+    </Stack.Navigator>
+  );
+}
+
+function AdministrativeBookingsStack({ navigation }) {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        ...getHeaderOptions(navigation),
+        headerBackTitleVisible: false,
+        headerBackButtonMenuEnabled: false,
+      }}
+    >
+      <Stack.Screen
+        name="FinanceBookings"
+        component={FinanceBookingsScreen}
+        options={getHeaderOptions(navigation, 'Administrative Bookings')}
+      />
+
+      <Stack.Screen
+        name="BookingDetails"
+        component={BookingDetailsScreen}
+        options={getHeaderOptions(navigation, 'Booking Details')}
+      />
+    </Stack.Navigator>
+  );
+}
 
 // Stack for expenses
 function ExpensesStack({ navigation }) {
@@ -203,6 +263,9 @@ function ProfileStack({ navigation }) {
 export default function AppDrawer() {
   const { data: user } = useSelector(state => state.auth); // Get user data from Redux
   const role = user?.role || 'employee'; // Default to employee
+  const { isAdministrative, loading } = useAdministrativeStatus();
+
+  if (loading) return null;
 
   return (
     <Drawer.Navigator
@@ -311,6 +374,38 @@ export default function AppDrawer() {
             }}
           />
         </>
+      )}
+
+      <Drawer.Screen
+        name="My Bookings"
+        component={MyBookingsStack}
+        options={{
+          drawerLabel: 'My Bookings',
+          drawerIcon: ({ color, size, focused }) => (
+            <MaterialIcons
+              name="event"
+              size={focused ? size + 2 : size}
+              color={color}
+            />
+          ),
+        }}
+      />
+
+      {isAdministrative && (
+        <Drawer.Screen
+          name="Administrative Bookings"
+          component={AdministrativeBookingsStack}
+          options={{
+            drawerLabel: 'Administrative Bookings',
+            drawerIcon: ({ color, size, focused }) => (
+              <MaterialIcons
+                name="event-available"
+                size={focused ? size + 2 : size}
+                color={color}
+              />
+            ),
+          }}
+        />
       )}
 
       {/* Always visible - Profile */}

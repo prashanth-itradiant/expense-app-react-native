@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import DatePicker from 'react-native-date-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -30,9 +31,59 @@ import {
 import { CURRENCIES } from '../utils/constant';
 const { VITE_API_URL } = process.env; // or import { VITE_API_URL } from '@env';
 
+const formatDate = date => {
+  return date.toISOString().split('T')[0];
+};
+
+const StyledPicker = ({ value, onChange, placeholder, items, disabled }) => {
+  const showPlaceholder = !value;
+
+  return (
+    <View
+      style={[
+        styles.pickerContainer,
+        disabled && { backgroundColor: '#F3F4F6' },
+      ]}
+    >
+      {/* Placeholder overlay */}
+      {showPlaceholder && (
+        <Text
+          style={{
+            position: 'absolute',
+            left: 14,
+            color: INACTIVE_COLOR,
+            fontSize: 16,
+            zIndex: 1,
+          }}
+        >
+          {placeholder}
+        </Text>
+      )}
+
+      <Picker
+        selectedValue={value}
+        onValueChange={onChange}
+        style={[styles.picker, { color: value ? '#111827' : 'transparent' }]}
+        enabled={!disabled}
+        dropdownIconColor={PRIMARY_COLOR}
+      >
+        {/* Hidden placeholder item */}
+        <Picker.Item label={placeholder} value="" />
+        {items.map(item => (
+          <Picker.Item key={item.value} label={item.label} value={item.value} />
+        ))}
+      </Picker>
+    </View>
+  );
+};
+
 const ExpenseFormScreen = () => {
   const navigation = useNavigation();
   const queryClient = useQueryClient();
+  const [openDatePicker, setOpenDatePicker] = useState(false);
+  const [activeDateIndex, setActiveDateIndex] = useState(null);
+  const [activeDateField, setActiveDateField] = useState(null);
+  const [tempDate, setTempDate] = useState(new Date());
 
   const [loading, setLoading] = useState(true);
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -340,50 +391,67 @@ const ExpenseFormScreen = () => {
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <View style={[styles.inputContainer, { flex: 1 }]}>
               <Text style={styles.inputLabel}>Period From</Text>
-              <TextInput
+              <TouchableOpacity
                 style={styles.input}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={INACTIVE_COLOR}
-                value={formData.periodFrom}
-                onChangeText={val => handleChange('periodFrom', val)}
-              />
+                onPress={() => {
+                  setActiveDateField('periodFrom');
+                  setTempDate(
+                    formData.periodFrom
+                      ? new Date(formData.periodFrom)
+                      : new Date(),
+                  );
+                  setOpenDatePicker(true);
+                }}
+              >
+                <Text
+                  style={{
+                    color: formData.periodFrom ? '#111827' : INACTIVE_COLOR,
+                    fontSize: 16,
+                  }}
+                >
+                  {formData.periodFrom || 'Select Start Date'}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             <View style={[styles.inputContainer, { flex: 1 }]}>
               <Text style={styles.inputLabel}>Period To</Text>
-              <TextInput
+              <TouchableOpacity
                 style={styles.input}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={INACTIVE_COLOR}
-                value={formData.periodTo}
-                onChangeText={val => handleChange('periodTo', val)}
-              />
+                onPress={() => {
+                  setActiveDateField('periodTo');
+                  setTempDate(
+                    formData.periodTo
+                      ? new Date(formData.periodTo)
+                      : new Date(),
+                  );
+                  setOpenDatePicker(true);
+                }}
+              >
+                <Text
+                  style={{
+                    color: formData.periodTo ? '#111827' : INACTIVE_COLOR,
+                    fontSize: 16,
+                  }}
+                >
+                  {formData.periodTo || 'Select End Date'}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
 
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Client</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={formData.client}
-                onValueChange={val => handleChange('client', val)}
-                style={styles.picker}
-              >
-                <Picker.Item
-                  label="Select Client"
-                  value=""
-                  color={INACTIVE_COLOR}
-                />
-                {clients.map(c => (
-                  <Picker.Item
-                    key={c._id}
-                    label={c.name}
-                    value={c._id}
-                    color={INACTIVE_COLOR}
-                  />
-                ))}
-              </Picker>
-            </View>
+
+            <StyledPicker
+              value={formData.client}
+              onChange={val => handleChange('client', val)}
+              placeholder="Select Client"
+              items={clients.map(c => ({
+                label: c.name,
+                value: c._id,
+              }))}
+            />
           </View>
 
           <View style={styles.inputContainer}>
@@ -399,77 +467,41 @@ const ExpenseFormScreen = () => {
 
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Manager *</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={formData.managerId}
-                onValueChange={val => handleChange('managerId', val)}
-                style={styles.picker}
-              >
-                <Picker.Item
-                  label="Select Manager"
-                  value=""
-                  color={INACTIVE_COLOR}
-                />
-                {managers.map(m => (
-                  <Picker.Item
-                    key={m._id}
-                    label={m.name}
-                    value={m._id}
-                    color={INACTIVE_COLOR}
-                  />
-                ))}
-              </Picker>
-            </View>
+            <StyledPicker
+              value={formData.managerId}
+              onChange={val => handleChange('managerId', val)}
+              placeholder="Select Manager"
+              items={managers.map(m => ({
+                label: m.name,
+                value: m._id,
+              }))}
+            />
           </View>
 
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Finance *</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={formData.financeId}
-                onValueChange={val => handleChange('financeId', val)}
-                style={styles.picker}
-              >
-                <Picker.Item
-                  label="Select Finance"
-                  value=""
-                  color={INACTIVE_COLOR}
-                />
-                {financeUsers.map(f => (
-                  <Picker.Item
-                    key={f._id}
-                    label={f.name}
-                    value={f._id}
-                    color={INACTIVE_COLOR}
-                  />
-                ))}
-              </Picker>
-            </View>
+            <StyledPicker
+              value={formData.financeId}
+              onChange={val => handleChange('financeId', val)}
+              placeholder="Select Finance"
+              items={financeUsers.map(f => ({
+                label: f.name,
+                value: f._id,
+              }))}
+            />
           </View>
 
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Currency *</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={formData.currency}
-                onValueChange={val => handleChange('currency', val)}
-                style={styles.picker}
-              >
-                <Picker.Item
-                  label="Select Currency"
-                  value=""
-                  color={INACTIVE_COLOR}
-                />
-                {CURRENCIES.map(c => (
-                  <Picker.Item
-                    key={c}
-                    label={c}
-                    value={c}
-                    color={INACTIVE_COLOR}
-                  />
-                ))}
-              </Picker>
-            </View>
+            <StyledPicker
+              value={formData.currency}
+              onChange={val => handleChange('currency', val)}
+              placeholder="Select Currency"
+              items={CURRENCIES.map(c => ({
+                label: c,
+                value: c,
+              }))}
+            />
           </View>
 
           <View
@@ -544,91 +576,69 @@ const ExpenseFormScreen = () => {
 
                 <View style={styles.inputContainer}>
                   <Text style={styles.inputLabel}>Expense Date</Text>
-                  <TextInput
+                  <TouchableOpacity
                     style={styles.input}
-                    placeholder="YYYY-MM-DD"
-                    value={sub.documentDate}
-                    onChangeText={val => handleChange('documentDate', val, idx)}
-                  />
+                    onPress={() => {
+                      setActiveDateIndex(idx);
+                      setActiveDateField('documentDate');
+                      setTempDate(
+                        sub.documentDate
+                          ? new Date(sub.documentDate)
+                          : new Date(),
+                      );
+                      setOpenDatePicker(true);
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: sub.documentDate ? '#111827' : INACTIVE_COLOR,
+                        fontSize: 16,
+                      }}
+                    >
+                      {sub.documentDate || 'Select Expense Date'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
 
                 <View style={styles.inputContainer}>
                   <Text style={styles.inputLabel}>Expense Category *</Text>
-                  <View style={styles.pickerContainer}>
-                    <Picker
-                      selectedValue={sub.expenseCategory}
-                      onValueChange={val =>
-                        handleChange('expenseCategory', val, idx)
-                      }
-                      style={styles.picker}
-                    >
-                      <Picker.Item
-                        label="Select Category"
-                        value=""
-                        color={INACTIVE_COLOR}
-                      />
-                      {categories.map(cat => (
-                        <Picker.Item
-                          key={cat._id}
-                          label={cat.name}
-                          value={cat._id}
-                          color={INACTIVE_COLOR}
-                        />
-                      ))}
-                    </Picker>
-                  </View>
+                  <StyledPicker
+                    value={sub.expenseCategory}
+                    onChange={val => handleChange('expenseCategory', val, idx)}
+                    placeholder="Select Category"
+                    items={categories.map(cat => ({
+                      label: cat.name,
+                      value: cat._id,
+                    }))}
+                  />
                 </View>
 
                 <View style={styles.inputContainer}>
                   <Text style={styles.inputLabel}>Expense Type *</Text>
-                  <View style={styles.pickerContainer}>
-                    <Picker
-                      selectedValue={sub.expenseType}
-                      onValueChange={val =>
-                        handleChange('expenseType', val, idx)
-                      }
-                      style={styles.picker}
-                    >
-                      <Picker.Item
-                        label="Select Type"
-                        value=""
-                        color={INACTIVE_COLOR}
-                      />
-                      {selectedCategory?.subtypes?.map(st => (
-                        <Picker.Item
-                          key={st.gl_account}
-                          label={st.name}
-                          value={st.gl_account}
-                          color={INACTIVE_COLOR}
-                        />
-                      ))}
-                    </Picker>
-                  </View>
+                  <StyledPicker
+                    value={sub.expenseType}
+                    onChange={val => handleChange('expenseType', val, idx)}
+                    placeholder="Select Type"
+                    disabled={!sub.expenseCategory}
+                    items={(selectedCategory?.subtypes || []).map(st => ({
+                      label: st.name,
+                      value: st.gl_account,
+                    }))}
+                  />
                 </View>
 
                 <View style={styles.inputContainer}>
                   <Text style={styles.inputLabel}>Vendor *</Text>
-                  <View style={styles.pickerContainer}>
-                    <Picker
-                      selectedValue={sub.vendor}
-                      onValueChange={val => handleChange('vendor', val, idx)}
-                      style={styles.picker}
-                    >
-                      <Picker.Item
-                        label="Select Vendor"
-                        value=""
-                        color={INACTIVE_COLOR}
-                      />
-                      {selectedType?.vendors?.map((v, vidx) => (
-                        <Picker.Item
-                          key={`${v.name}-${vidx}`}
-                          label={v.name}
-                          value={v.name}
-                          color={INACTIVE_COLOR}
-                        />
-                      ))}
-                    </Picker>
-                  </View>
+                  <StyledPicker
+                    value={sub.vendor}
+                    onChange={val => handleChange('vendor', val, idx)}
+                    placeholder="Select Vendor"
+                    disabled={!sub.expenseType}
+                    items={(selectedType?.vendors || []).map(v => ({
+                      label: v.name,
+                      value: v.name,
+                    }))}
+                  />
                 </View>
 
                 <View style={styles.inputContainer}>
@@ -734,6 +744,38 @@ const ExpenseFormScreen = () => {
             </TouchableOpacity>
           </View>
         </View>
+        <DatePicker
+          modal
+          open={openDatePicker}
+          date={tempDate}
+          mode="date"
+          androidVariant="nativeAndroid"
+          onConfirm={date => {
+            setOpenDatePicker(false);
+
+            const formatted = formatDate(date);
+
+            if (activeDateField === 'documentDate') {
+              handleChange('documentDate', formatted, activeDateIndex);
+            }
+
+            if (activeDateField === 'periodFrom') {
+              handleChange('periodFrom', formatted);
+            }
+
+            if (activeDateField === 'periodTo') {
+              handleChange('periodTo', formatted);
+            }
+
+            setActiveDateIndex(null);
+            setActiveDateField(null);
+          }}
+          onCancel={() => {
+            setOpenDatePicker(false);
+            setActiveDateIndex(null);
+            setActiveDateField(null);
+          }}
+        />
 
         <Toast />
       </ScrollView>
@@ -826,12 +868,20 @@ const styles = StyleSheet.create({
     borderColor: '#D1D5DB',
     borderRadius: 12,
     backgroundColor: '#fff',
-    overflow: 'hidden',
+    justifyContent: 'center',
+    height: 56,
+    paddingHorizontal: 12,
     ...CARD_SHADOW,
   },
   picker: {
+    color: '#111827',
     height: 56,
-    color: '#1F2937',
+    width: '100%',
+  },
+  dropdownIcon: {
+    position: 'absolute',
+    right: 12,
+    pointerEvents: 'none',
   },
   addButton: {
     flexDirection: 'row',

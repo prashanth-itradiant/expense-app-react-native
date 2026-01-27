@@ -30,6 +30,49 @@ import {
 import { CURRENCIES } from '../utils/constant'; // adjust path if needed
 
 import { VITE_API_URL, VITE_IMAGE_URL } from '@env';
+import DatePicker from 'react-native-date-picker';
+
+const formatDateOnly = value => {
+  if (!value) return '';
+  return value.split('T')[0]; // YYYY-MM-DD
+};
+
+const StyledPicker = ({ value, onChange, placeholder, items, disabled }) => {
+  const showPlaceholder = !value;
+
+  return (
+    <View
+      style={[styles.pickerWrap, disabled && { backgroundColor: '#F3F4F6' }]}
+    >
+      {showPlaceholder && (
+        <Text
+          style={{
+            position: 'absolute',
+            left: 14,
+            color: INACTIVE_COLOR,
+            fontSize: 15,
+            zIndex: 1,
+          }}
+        >
+          {placeholder}
+        </Text>
+      )}
+
+      <Picker
+        selectedValue={value}
+        onValueChange={onChange}
+        enabled={!disabled}
+        style={{ color: value ? '#111827' : 'transparent' }}
+        dropdownIconColor={PRIMARY_COLOR}
+      >
+        <Picker.Item label={placeholder} value="" />
+        {items.map(item => (
+          <Picker.Item key={item.value} label={item.label} value={item.value} />
+        ))}
+      </Picker>
+    </View>
+  );
+};
 
 export default function EditExpenseMobile() {
   const navigation = useNavigation();
@@ -45,6 +88,11 @@ export default function EditExpenseMobile() {
   const [categories, setCategories] = useState([]); // expected shape: [{ _id, expense_category, expense_type, vendor }]
   const [form, setForm] = useState(null); // will hold fields same as web
   const [totalReimbursement, setTotalReimbursement] = useState('0.00');
+
+  const [openDatePicker, setOpenDatePicker] = useState(false);
+  const [activeSubIndex, setActiveSubIndex] = useState(null);
+  const [activeDateField, setActiveDateField] = useState(null);
+  const [tempDate, setTempDate] = useState(new Date());
 
   // Fetch users, clients, categories, expense
   const fetchAll = useCallback(async () => {
@@ -85,18 +133,22 @@ export default function EditExpenseMobile() {
         const e = expenseRes.data.data;
 
         // Normalize subExpenses so existing files are strings, new ones we will mark with isNew flag when added
-        const normalizedSub = (e.subExpenses || []).map(se => ({
-          _id: se._id,
-          documentDate: se.documentDate || e.periodFrom || '',
-          expenseCategory: se.expenseCategory || '',
-          expenseType: se.expenseType || '',
-          vendor: se.vendor || '',
-          amount: se.amount ? String(se.amount) : '',
-          comment: se.comment || se.description || '',
-          files: se.files || [], // existing filenames (strings)
-          managerApproval: se.managerApproval,
-          financeApproval: se.financeApproval,
-        }));
+        const normalizedSub = (e.subExpenses || []).map(se => {
+          const categoryRow = categoriesRes.data.data.find(
+            c => c._id === se.expenseCategory,
+          );
+
+          return {
+            _id: se._id,
+            documentDate: se.documentDate || e.periodFrom || '',
+            expenseCategory: se.expenseCategory || '', // KEEP ID
+            expenseType: se.expenseType || '', // KEEP GL
+            vendor: se.vendor || '',
+            amount: se.amount ? String(se.amount) : '',
+            comment: se.comment || '',
+            files: se.files || [],
+          };
+        });
 
         setForm({
           expenseName: e.expenseName || '',
@@ -271,10 +323,7 @@ export default function EditExpenseMobile() {
     }
   };
 
-  // Compute types list filtered by selected category
   const getTypesForCategory = category => {
-    if (!category) return [];
-    // categories entries may be duplicate; web filtered by item.expense_category === selectedCategory
     return categories
       .filter(c => c.expense_category === category)
       .map(c => c.expense_type);
@@ -282,14 +331,8 @@ export default function EditExpenseMobile() {
 
   // Compute vendor options for selected expenseType
   const getVendorsForType = expenseType => {
-    if (!expenseType) return [];
     const found = categories.find(c => c.expense_type === expenseType);
-    if (!found || !found.vendor) return [];
-    // vendor likely comma separated
-    return String(found.vendor)
-      .split(',')
-      .map(v => v.trim())
-      .filter(Boolean);
+    return found?.vendor ? found.vendor.split(',').map(v => v.trim()) : [];
   };
 
   // Submit update
@@ -393,41 +436,56 @@ export default function EditExpenseMobile() {
         <View style={styles.row}>
           <View style={{ flex: 1, marginRight: 8 }}>
             <Text style={styles.label}>Period From</Text>
-            <TextInput
+            <TouchableOpacity
               style={styles.input}
-              value={form.periodFrom?.split?.('T')?.[0] || form.periodFrom}
-              onChangeText={t => updateField('periodFrom', t)}
-              placeholder="YYYY-MM-DD"
-            />
+              onPress={() => {
+                setActiveDateField('periodFrom');
+                setTempDate(
+                  form.periodFrom ? new Date(form.periodFrom) : new Date(),
+                );
+                setOpenDatePicker(true);
+              }}
+            >
+              <Text
+                style={{ color: form.periodFrom ? '#111827' : INACTIVE_COLOR }}
+              >
+                {form.periodFrom
+                  ? formatDateOnly(form.periodFrom)
+                  : 'Select Start Date'}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           <View style={{ flex: 1 }}>
             <Text style={styles.label}>Period To</Text>
-            <TextInput
+            <TouchableOpacity
               style={styles.input}
-              value={form.periodTo?.split?.('T')?.[0] || form.periodTo}
-              onChangeText={t => updateField('periodTo', t)}
-              placeholder="YYYY-MM-DD"
-            />
+              onPress={() => {
+                setActiveDateField('periodTo');
+                setTempDate(
+                  form.periodTo ? new Date(form.periodTo) : new Date(),
+                );
+                setOpenDatePicker(true);
+              }}
+            >
+              <Text
+                style={{ color: form.periodTo ? '#111827' : INACTIVE_COLOR }}
+              >
+                {form.periodTo
+                  ? formatDateOnly(form.periodTo)
+                  : 'Select End Date'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
         <Text style={styles.label}>Currency *</Text>
-        <View style={styles.pickerWrap}>
-          <Picker
-            selectedValue={form.currency}
-            onValueChange={v => updateField('currency', v)}
-          >
-            <Picker.Item
-              label="Select currency"
-              value=""
-              color={INACTIVE_COLOR}
-            />
-            {CURRENCIES.map(c => (
-              <Picker.Item key={c} label={c} value={c} />
-            ))}
-          </Picker>
-        </View>
+        <StyledPicker
+          value={form.currency}
+          onChange={v => updateField('currency', v)}
+          placeholder="Select Currency"
+          items={CURRENCIES.map(c => ({ label: c, value: c }))}
+        />
 
         <Text style={styles.label}>Total Reimbursement</Text>
         <TextInput
@@ -437,21 +495,15 @@ export default function EditExpenseMobile() {
         />
 
         <Text style={styles.label}>Client</Text>
-        <View style={styles.pickerWrap}>
-          <Picker
-            selectedValue={form.client}
-            onValueChange={v => updateField('client', v)}
-          >
-            <Picker.Item
-              label="Select client"
-              value=""
-              color={INACTIVE_COLOR}
-            />
-            {clients.map(c => (
-              <Picker.Item key={c._id} label={c.name} value={c._id} />
-            ))}
-          </Picker>
-        </View>
+        <StyledPicker
+          value={form.client}
+          onChange={v => updateField('client', v)}
+          placeholder="Select Client"
+          items={clients.map(c => ({
+            label: c.name,
+            value: c._id,
+          }))}
+        />
 
         <Text style={styles.label}>Reference</Text>
         <TextInput
@@ -461,41 +513,26 @@ export default function EditExpenseMobile() {
         />
 
         <Text style={styles.label}>Manager</Text>
-        <View style={styles.pickerWrap}>
-          <Picker
-            selectedValue={form.managerId}
-            onValueChange={v => updateField('managerId', v)}
-          >
-            <Picker.Item
-              label="Select manager"
-              value=""
-              color={INACTIVE_COLOR}
-            />
-            {managers.map(m => (
-              <Picker.Item key={m._id} label={m.name} value={m._id} />
-            ))}
-          </Picker>
-        </View>
+        <StyledPicker
+          value={form.managerId}
+          onChange={v => updateField('managerId', v)}
+          placeholder="Select Manager"
+          items={managers.map(m => ({
+            label: m.name,
+            value: m._id,
+          }))}
+        />
 
         <Text style={styles.label}>Finance</Text>
-        <View style={styles.pickerWrap}>
-          <Picker
-            selectedValue={form.financeId}
-            onValueChange={v => updateField('financeId', v)}
-          >
-            <Picker.Item
-              label="Select finance"
-              value=""
-              color={INACTIVE_COLOR}
-            />
-            {financeUsers.map(f => (
-              <Picker.Item key={f._id} label={f.name} value={f._1d} />
-            ))}
-            {financeUsers.map(f => (
-              <Picker.Item key={f._id} label={f.name} value={f._id} />
-            ))}
-          </Picker>
-        </View>
+        <StyledPicker
+          value={form.financeId}
+          onChange={v => updateField('financeId', v)}
+          placeholder="Select Finance"
+          items={financeUsers.map(f => ({
+            label: f.name,
+            value: f._id,
+          }))}
+        />
       </View>
 
       <View style={styles.section}>
@@ -512,172 +549,170 @@ export default function EditExpenseMobile() {
           </TouchableOpacity>
         </View>
 
-        {form.subExpenses.map((se, idx) => (
-          <View key={idx} style={styles.subCard}>
-            <View style={styles.subCardHeader}>
-              <Text style={styles.subTitle}>Item {idx + 1}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={styles.subAmount}>
-                  {se.amount ? se.amount : ''}
-                </Text>
-                {form.subExpenses.length > 1 && (
-                  <TouchableOpacity
-                    onPress={() => removeSubExpense(idx)}
-                    style={styles.removeBtn}
-                  >
-                    <MaterialIcons
-                      name="delete"
-                      size={18}
-                      color={ERROR_COLOR}
-                    />
-                  </TouchableOpacity>
-                )}
+        {form.subExpenses.map((se, idx) => {
+          const selectedCategory = categories.find(
+            c => c._id === se.expenseCategory,
+          );
+
+          const selectedType = selectedCategory?.subtypes?.find(
+            st => st.gl_account === se.expenseType,
+          );
+
+          return (
+            <View key={idx} style={styles.subCard}>
+              <View style={styles.subCardHeader}>
+                <Text style={styles.subTitle}>Item {idx + 1}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={styles.subAmount}>
+                    {se.amount ? se.amount : ''}
+                  </Text>
+                  {form.subExpenses.length > 1 && (
+                    <TouchableOpacity
+                      onPress={() => removeSubExpense(idx)}
+                      style={styles.removeBtn}
+                    >
+                      <MaterialIcons
+                        name="delete"
+                        size={18}
+                        color={ERROR_COLOR}
+                      />
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
-            </View>
-
-            <Text style={styles.label}>Expense Date</Text>
-            <TextInput
-              style={styles.input}
-              value={se.documentDate?.split?.('T')?.[0] || se.documentDate}
-              onChangeText={t => updateSub(idx, 'documentDate', t)}
-              placeholder="YYYY-MM-DD"
-            />
-
-            <Text style={styles.label}>Category</Text>
-            <View style={styles.pickerWrap}>
-              <Picker
-                selectedValue={se.expenseCategory}
-                onValueChange={v => {
+              <Text style={styles.label}>Expense Date</Text>
+              <TouchableOpacity
+                style={styles.input}
+                onPress={() => {
+                  setActiveSubIndex(idx);
+                  setActiveDateField('documentDate');
+                  setTempDate(
+                    se.documentDate ? new Date(se.documentDate) : new Date(),
+                  );
+                  setOpenDatePicker(true);
+                }}
+              >
+                <Text
+                  style={{
+                    color: se.documentDate ? '#111827' : INACTIVE_COLOR,
+                  }}
+                >
+                  {se.documentDate
+                    ? formatDateOnly(se.documentDate)
+                    : 'Select Expense Date'}
+                </Text>
+              </TouchableOpacity>
+              <Text style={styles.label}>Category</Text>
+              <StyledPicker
+                value={se.expenseCategory}
+                onChange={v => {
                   updateSub(idx, 'expenseCategory', v);
-                  // clear dependent fields
                   updateSub(idx, 'expenseType', '');
                   updateSub(idx, 'vendor', '');
                 }}
-              >
-                <Picker.Item
-                  label="Select category"
-                  value=""
-                  color={INACTIVE_COLOR}
-                />
-                {Array.from(
-                  new Set(categories.map(c => c.expense_category)),
-                ).map(cg => (
-                  <Picker.Item key={cg} label={cg} value={cg} />
-                ))}
-              </Picker>
-            </View>
+                placeholder="Select Category"
+                items={categories.map(c => ({
+                  label: c.name,
+                  value: c._id,
+                }))}
+              />
+              <Text style={styles.label}>Type</Text>
 
-            <Text style={styles.label}>Type</Text>
-            <View style={styles.pickerWrap}>
-              <Picker
-                selectedValue={se.expenseType}
-                onValueChange={v => {
-                  updateSub(idx, 'expenseType', v);
-                  updateSub(idx, 'vendor', '');
-                }}
-              >
-                <Picker.Item
-                  label="Select type"
-                  value=""
-                  color={INACTIVE_COLOR}
-                />
-                {getTypesForCategory(se.expenseCategory).map(tp => (
-                  <Picker.Item key={tp} label={tp} value={tp} />
-                ))}
-              </Picker>
-            </View>
+              <StyledPicker
+                value={se.expenseType}
+                disabled={!se.expenseCategory}
+                placeholder="Select Type"
+                items={(selectedCategory?.subtypes || []).map(st => ({
+                  label: st.name,
+                  value: st.gl_account,
+                }))}
+              />
+              <Text style={styles.label}>Vendor</Text>
 
-            <Text style={styles.label}>Vendor</Text>
-            <View style={styles.pickerWrap}>
-              <Picker
-                selectedValue={se.vendor}
-                onValueChange={v => updateSub(idx, 'vendor', v)}
-              >
-                <Picker.Item
-                  label="Select vendor"
-                  value=""
-                  color={INACTIVE_COLOR}
-                />
-                {getVendorsForType(se.expenseType).map(vn => (
-                  <Picker.Item key={vn} label={vn} value={vn} />
-                ))}
-              </Picker>
-            </View>
+              <StyledPicker
+                value={se.vendor}
+                disabled={!se.expenseType}
+                placeholder="Select Vendor"
+                items={(selectedType?.vendors || []).map(v => ({
+                  label: v.name,
+                  value: v.name,
+                }))}
+              />
+              <Text style={styles.label}>Amount</Text>
+              <TextInput
+                style={styles.input}
+                keyboardType="numeric"
+                value={String(se.amount || '')}
+                onChangeText={t => updateSub(idx, 'amount', t)}
+              />
+              <Text style={styles.label}>Comment</Text>
+              <TextInput
+                style={styles.input}
+                value={se.comment}
+                onChangeText={t => updateSub(idx, 'comment', t)}
+              />
+              <Text style={[styles.label, { marginTop: 8 }]}>Attachments</Text>
+              {(se.files || []).map((f, fi) => {
+                const isExisting = typeof f === 'string';
+                const fileName = isExisting ? f : f.name || 'file';
+                const fileUrl = isExisting
+                  ? `${VITE_IMAGE_URL}/expenses/${f}`
+                  : f.uri;
+                const isImage = /\.(jpe?g|png|gif)$/i.test(fileName);
+                return (
+                  <View key={fi} style={styles.fileRow}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        // open link for existing files
+                        if (isExisting) {
+                          // open URL
+                          // Linking.openURL(fileUrl)
+                        } else {
+                          // maybe preview new file - skip
+                        }
+                      }}
+                      style={styles.filePreview}
+                    >
+                      {isImage ? (
+                        <Image
+                          source={{ uri: fileUrl }}
+                          style={styles.fileThumb}
+                        />
+                      ) : (
+                        <MaterialIcons
+                          name="picture-as-pdf"
+                          size={28}
+                          color="#EF4444"
+                        />
+                      )}
+                      <Text style={styles.fileName} numberOfLines={1}>
+                        {fileName}
+                      </Text>
+                    </TouchableOpacity>
 
-            <Text style={styles.label}>Amount</Text>
-            <TextInput
-              style={styles.input}
-              keyboardType="numeric"
-              value={String(se.amount || '')}
-              onChangeText={t => updateSub(idx, 'amount', t)}
-            />
-
-            <Text style={styles.label}>Comment</Text>
-            <TextInput
-              style={styles.input}
-              value={se.comment}
-              onChangeText={t => updateSub(idx, 'comment', t)}
-            />
-
-            <Text style={[styles.label, { marginTop: 8 }]}>Attachments</Text>
-
-            {(se.files || []).map((f, fi) => {
-              const isExisting = typeof f === 'string';
-              const fileName = isExisting ? f : f.name || 'file';
-              const fileUrl = isExisting
-                ? `${VITE_IMAGE_URL}/expenses/${f}`
-                : f.uri;
-              const isImage = /\.(jpe?g|png|gif)$/i.test(fileName);
-              return (
-                <View key={fi} style={styles.fileRow}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      // open link for existing files
-                      if (isExisting) {
-                        // open URL
-                        // Linking.openURL(fileUrl)
-                      } else {
-                        // maybe preview new file - skip
-                      }
-                    }}
-                    style={styles.filePreview}
-                  >
-                    {isImage ? (
-                      <Image
-                        source={{ uri: fileUrl }}
-                        style={styles.fileThumb}
-                      />
-                    ) : (
+                    <TouchableOpacity
+                      onPress={() => deleteFile(idx, fi)}
+                      style={styles.deleteFileBtn}
+                    >
                       <MaterialIcons
-                        name="picture-as-pdf"
-                        size={28}
-                        color="#EF4444"
+                        name="close"
+                        size={18}
+                        color={ERROR_COLOR}
                       />
-                    )}
-                    <Text style={styles.fileName} numberOfLines={1}>
-                      {fileName}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => deleteFile(idx, fi)}
-                    style={styles.deleteFileBtn}
-                  >
-                    <MaterialIcons name="close" size={18} color={ERROR_COLOR} />
-                  </TouchableOpacity>
-                </View>
-              );
-            })}
-
-            <TouchableOpacity
-              style={styles.pickBtn}
-              onPress={() => pickFiles(idx)}
-            >
-              <MaterialIcons name="attach-file" size={18} color="#fff" />
-              <Text style={styles.pickBtnText}>Add Files</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+              <TouchableOpacity
+                style={styles.pickBtn}
+                onPress={() => pickFiles(idx)}
+              >
+                <MaterialIcons name="attach-file" size={18} color="#fff" />
+                <Text style={styles.pickBtnText}>Add Files</Text>
+              </TouchableOpacity>
+            </View>
+          );
+        })}
       </View>
 
       <View style={[styles.section, { marginBottom: 40 }]}>
@@ -706,6 +741,30 @@ export default function EditExpenseMobile() {
           </TouchableOpacity>
         </View>
       </View>
+      <DatePicker
+        modal
+        open={openDatePicker}
+        date={tempDate}
+        mode="date"
+        onConfirm={date => {
+          const formatted = date.toISOString().split('T')[0];
+
+          if (activeDateField === 'documentDate') {
+            updateSub(activeSubIndex, 'documentDate', formatted);
+          }
+          if (activeDateField === 'periodFrom') {
+            updateField('periodFrom', formatted);
+          }
+          if (activeDateField === 'periodTo') {
+            updateField('periodTo', formatted);
+          }
+
+          setOpenDatePicker(false);
+          setActiveSubIndex(null);
+          setActiveDateField(null);
+        }}
+        onCancel={() => setOpenDatePicker(false)}
+      />
 
       <Toast />
     </ScrollView>

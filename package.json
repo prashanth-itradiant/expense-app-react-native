@@ -24,6 +24,7 @@
     "npm": "^11.5.2",
     "react": "19.1.0",
     "react-native": "0.80.2",
+    "react-native-date-picker": "^5.0.13",
     "react-native-dotenv": "^3.4.11",
     "react-native-file-viewer": "^2.1.5",
     "react-native-fs": "^2.20.0",
