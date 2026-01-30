@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 // TeamExpensesScreenSingle.js
+import { API_URL } from '@env';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
@@ -34,10 +35,9 @@ import { COLORS, SPACING } from '../theme/theme';
 
 // Fetchers
 const fetchTeamExpenses = async () => {
-  const { data } = await axios.get(
-    `${process.env.VITE_API_URL || ''}/expenses/team-expenses`,
-    { withCredentials: true },
-  );
+  const { data } = await axios.get(`${API_URL || ''}/expenses/team-expenses`, {
+    withCredentials: true,
+  });
   if (!data.success) throw new Error(data.message || 'Failed to fetch team');
   return data.data;
 };
@@ -45,7 +45,7 @@ const fetchTeamExpenses = async () => {
 const fetchApprovedExpenses = async ({ queryKey }) => {
   const [_key, page = 1, limit = 10] = queryKey;
   const { data } = await axios.get(
-    `${process.env.VITE_API_URL || ''}/expenses/all-org-expenses`,
+    `${API_URL || ''}/expenses/all-org-expenses`,
     {
       params: { page, limit },
       withCredentials: true,
@@ -169,7 +169,7 @@ export default function TeamExpensesListScreen() {
 
   // download pdf (same)
   const downloadPdf = async id => {
-    const url = `${process.env.VITE_API_URL || ''}/expenses/${id}/pdf`;
+    const url = `${API_URL || ''}/expenses/${id}/pdf`;
     try {
       await Linking.openURL(url);
     } catch (err) {
@@ -181,7 +181,7 @@ export default function TeamExpensesListScreen() {
   const sendSap = async id => {
     try {
       const res = await axios.post(
-        `${process.env.VITE_API_URL}/users/sap/${id}`,
+        `${API_URL}/users/sap/${id}`,
         {},
         {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -203,7 +203,7 @@ export default function TeamExpensesListScreen() {
 
   const downloadOrgExpensesExcel = async () => {
     try {
-      const url = `${process.env.VITE_API_URL}/expenses/all-org-expenses-export`;
+      const url = `${API_URL}/expenses/all-org-expenses-export`;
 
       const fileName = `Approved_Expenses_${Date.now()}.xlsx`;
       const filePath =

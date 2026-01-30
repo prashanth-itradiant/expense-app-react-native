@@ -1,4 +1,4 @@
-import { VITE_API_URL } from '@env';
+import { API_URL } from '@env';
 import { Alert, Linking } from 'react-native';
 
 export const openFile = async file => {
@@ -14,7 +14,7 @@ export const openFile = async file => {
       return;
     }
 
-    const res = await fetch(`${VITE_API_URL}/files/signed-url`, {
+    const res = await fetch(`${API_URL}/files/signed-url`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',

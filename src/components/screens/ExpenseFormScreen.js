@@ -1,6 +1,6 @@
 import { pick, types } from '@react-native-documents/picker';
 import { Picker } from '@react-native-picker/picker';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
@@ -18,8 +18,10 @@ import DatePicker from 'react-native-date-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import { openFile } from '../utils/openFile';
 
 // replace or keep these constants as you already have them
+import { API_URL } from '@env';
 import {
   CARD_SHADOW,
   ERROR_COLOR,
@@ -29,7 +31,6 @@ import {
   WARNING_COLOR,
 } from '../theme/theme';
 import { CURRENCIES } from '../utils/constant';
-const { VITE_API_URL } = process.env; // or import { VITE_API_URL } from '@env';
 
 const formatDate = date => {
   return date.toISOString().split('T')[0];
@@ -79,6 +80,7 @@ const StyledPicker = ({ value, onChange, placeholder, items, disabled }) => {
 
 const ExpenseFormScreen = () => {
   const navigation = useNavigation();
+  const route = useRoute();
   const queryClient = useQueryClient();
   const [openDatePicker, setOpenDatePicker] = useState(false);
   const [activeDateIndex, setActiveDateIndex] = useState(null);
@@ -97,6 +99,7 @@ const ExpenseFormScreen = () => {
   const [totalReimbursement, setTotalReimbursement] = useState('0.00');
 
   const [formData, setFormData] = useState({
+    bookingId: '',
     expenseName: '',
     periodFrom: '',
     periodTo: '',
@@ -120,19 +123,19 @@ const ExpenseFormScreen = () => {
     ],
   });
 
+  // Linked documents (e.g., ticket file from booking)
+  const [linkedDocuments, setLinkedDocuments] = useState([]);
+
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const usersReq = axios.get(
-          `${VITE_API_URL}/users/get-organization-users`,
-          {
-            withCredentials: true,
-          },
-        );
-        const catReq = axios.get(`${VITE_API_URL}/admin/get-all-categories`, {
+        const usersReq = axios.get(`${API_URL}/users/get-organization-users`, {
           withCredentials: true,
         });
-        const clientsReq = axios.get(`${VITE_API_URL}/admin/get-all-clients`, {
+        const catReq = axios.get(`${API_URL}/admin/get-all-categories`, {
+          withCredentials: true,
+        });
+        const clientsReq = axios.get(`${API_URL}/admin/get-all-clients`, {
           withCredentials: true,
         });
 
@@ -161,6 +164,95 @@ const ExpenseFormScreen = () => {
 
     fetchAll();
   }, []);
+
+  // Prefill from booking if opened from booking details (route param)
+  useEffect(() => {
+    const bookingId = route?.params?.bookingId || route?.params?.id;
+    if (!bookingId) return;
+
+    const prefillFromBooking = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/bookings/${bookingId}`, {
+          withCredentials: true,
+        });
+
+        if (!res.data?.success || !res.data?.data) {
+          Toast.show({
+            type: 'error',
+            text1: 'Booking prefill failed (no data)',
+          });
+          return;
+        }
+
+        const b = res.data.data;
+
+        const asDateInput = d =>
+          d ? new Date(d).toISOString().slice(0, 10) : '';
+
+        const from = b.departureDate || b.checkinDate || b.createdAt || '';
+        const to = b.checkoutDate || b.departureDate || b.createdAt || '';
+        const documentDate =
+          b.departureDate || b.checkinDate || b.createdAt || '';
+
+        const docs = [];
+        if (b.ticketFile?.url || b.ticketFile?.name) {
+          docs.push({
+            name: b.ticketFile.name || 'Ticket',
+            url: b.ticketFile.url || b.ticketFile,
+            type: b.ticketFile.type,
+            size: b.ticketFile.size,
+          });
+        }
+
+        setLinkedDocuments(docs);
+
+        setFormData(prev => {
+          const sub = [...prev.subExpenses];
+
+          if (sub.length === 0) {
+            sub.push({
+              documentDate: asDateInput(documentDate),
+              expenseCategory: '',
+              expenseType: '',
+              vendor: '',
+              amount: b.ticketCost ? String(b.ticketCost) : '',
+              description: b.expenseName || '',
+              files: [],
+            });
+          } else {
+            sub[0] = {
+              ...sub[0],
+              documentDate: asDateInput(documentDate) || sub[0].documentDate,
+              amount: b.ticketCost ? String(b.ticketCost) : sub[0].amount,
+              description:
+                b.expenseName && !sub[0].description
+                  ? b.expenseName
+                  : sub[0].description,
+            };
+          }
+
+          return {
+            ...prev,
+            bookingId,
+            expenseName: b.expenseName
+              ? `${b.expenseName} (Booking)`
+              : prev.expenseName,
+            periodFrom: asDateInput(from),
+            periodTo: asDateInput(to),
+            subExpenses: sub,
+          };
+        });
+      } catch (err) {
+        console.error('Prefill booking failed', err);
+        Toast.show({
+          type: 'error',
+          text1: err.response?.data?.message || 'Booking prefill failed',
+        });
+      }
+    };
+
+    prefillFromBooking();
+  }, [route?.params?.bookingId, route?.params?.id]);
 
   // recalc total
   useEffect(() => {
@@ -295,6 +387,11 @@ const ExpenseFormScreen = () => {
       payload.append('totalReimbursement', totalReimbursement || '0.00');
       payload.append('isDraft', isDraft ? 'true' : 'false');
 
+      if (formData.bookingId) payload.append('bookingId', formData.bookingId);
+      if (linkedDocuments && linkedDocuments.length) {
+        payload.append('linkedDocuments', JSON.stringify(linkedDocuments));
+      }
+
       formData.subExpenses.forEach((sub, i) => {
         payload.append(`documentDate-${i}`, sub.documentDate || '');
         payload.append(`expenseCategory-${i}`, sub.expenseCategory || '');
@@ -327,7 +424,7 @@ const ExpenseFormScreen = () => {
         });
       });
 
-      const res = await axios.post(`${VITE_API_URL}/expenses/`, payload, {
+      const res = await axios.post(`${API_URL}/expenses/`, payload, {
         withCredentials: true,
         headers: { 'Content-Type': 'multipart/form-data' },
       });
@@ -372,6 +469,36 @@ const ExpenseFormScreen = () => {
         <View style={styles.header}>
           <Text style={styles.title}>Create Expense</Text>
           <Text style={styles.subtitle}>Fill in the details below</Text>
+          {formData.bookingId ? (
+            <View
+              style={{
+                marginTop: 6,
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: PRIMARY_COLOR, fontSize: 13 }}>
+                Prefilled from booking
+              </Text>
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.navigate('BookingDetails', {
+                    id: formData.bookingId,
+                  })
+                }
+                style={{ marginLeft: 8 }}
+              >
+                <Text
+                  style={{
+                    color: PRIMARY_COLOR,
+                    textDecorationLine: 'underline',
+                  }}
+                >
+                  View Booking
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.formSection}>
@@ -464,6 +591,34 @@ const ExpenseFormScreen = () => {
               onChangeText={val => handleChange('reference', val)}
             />
           </View>
+
+          {/* Linked documents (e.g., ticket from booking) */}
+          {linkedDocuments.length > 0 && (
+            <View style={styles.linkedDocsContainer}>
+              <Text style={styles.inputLabel}>Linked Documents</Text>
+              {linkedDocuments.map((doc, i) => (
+                <View key={i} style={styles.linkedDocRow}>
+                  <TouchableOpacity
+                    onPress={() => openFile(doc)}
+                    style={{ flex: 1 }}
+                  >
+                    <Text style={styles.linkedDocName}>
+                      {doc.name || doc.url || 'Document'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() =>
+                      setLinkedDocuments(prev =>
+                        prev.filter((_, idx) => idx !== i),
+                      )
+                    }
+                  >
+                    <MaterialIcons name="close" size={20} color={ERROR_COLOR} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
 
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Manager *</Text>
@@ -847,10 +1002,26 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#fff',
-    color: '#1F2937',
-    ...CARD_SHADOW,
   },
+  linkedDocsContainer: {
+    marginTop: 8,
+    padding: 10,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+  },
+  linkedDocRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  linkedDocName: {
+    color: PRIMARY_COLOR,
+    fontSize: 14,
+  },
+
   textarea: {
     borderWidth: 1.5,
     borderColor: '#D1D5DB',

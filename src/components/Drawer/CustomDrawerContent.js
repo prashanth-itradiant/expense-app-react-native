@@ -1,4 +1,4 @@
-import { VITE_API_URL, VITE_IMAGE_URL } from '@env';
+import { API_URL, VITE_IMAGE_URL } from '@env';
 import {
   DrawerContentScrollView,
   DrawerItemList,
@@ -18,7 +18,7 @@ export default function CustomDrawerContent(props) {
   const handleLogout = async () => {
     try {
       await axios.post(
-        `${VITE_API_URL}/users/logout`,
+        `${API_URL}/users/logout`,
         {},
         { withCredentials: true },
       );

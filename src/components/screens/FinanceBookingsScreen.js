@@ -1,3 +1,4 @@
+import { API_URL } from '@env';
 import { pick, types } from '@react-native-documents/picker';
 import { useNavigation } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -17,10 +18,9 @@ import Toast from 'react-native-toast-message';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 
 const fetchFinanceBookings = async () => {
-  const { data } = await axios.get(
-    `${process.env.VITE_API_URL}/bookings/finance/pending`,
-    { withCredentials: true },
-  );
+  const { data } = await axios.get(`${API_URL}/bookings/finance/pending`, {
+    withCredentials: true,
+  });
   return data?.success ? data.data : [];
 };
 
@@ -105,14 +105,10 @@ export default function FinanceBookingsScreen() {
         name: file.name,
       });
 
-      return axios.put(
-        `${process.env.VITE_API_URL}/bookings/${bookingId}/upload-ticket`,
-        fd,
-        {
-          withCredentials: true,
-          headers: { 'Content-Type': 'multipart/form-data' },
-        },
-      );
+      return axios.put(`${API_URL}/bookings/${bookingId}/upload-ticket`, fd, {
+        withCredentials: true,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
     },
     onSuccess: () => {
       Toast.show({ type: 'success', text1: 'Ticket uploaded successfully' });

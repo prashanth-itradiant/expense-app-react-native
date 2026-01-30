@@ -29,7 +29,7 @@ import {
 } from '../theme/theme'; // adjust path if needed
 import { CURRENCIES } from '../utils/constant'; // adjust path if needed
 
-import { VITE_API_URL, VITE_IMAGE_URL } from '@env';
+import { API_URL, VITE_IMAGE_URL } from '@env';
 import DatePicker from 'react-native-date-picker';
 import { openFile } from '../utils/openFile';
 
@@ -132,16 +132,16 @@ export default function EditExpenseMobile() {
     try {
       const [usersRes, expenseRes, clientsRes, categoriesRes] =
         await Promise.all([
-          axios.get(`${VITE_API_URL}/users/get-organization-users`, {
+          axios.get(`${API_URL}/users/get-organization-users`, {
             withCredentials: true,
           }),
-          axios.get(`${VITE_API_URL}/expenses/get-expense/${expenseId}`, {
+          axios.get(`${API_URL}/expenses/get-expense/${expenseId}`, {
             withCredentials: true,
           }),
-          axios.get(`${VITE_API_URL}/admin/get-all-clients`, {
+          axios.get(`${API_URL}/admin/get-all-clients`, {
             withCredentials: true,
           }),
-          axios.get(`${VITE_API_URL}/admin/get-all-categories`, {
+          axios.get(`${API_URL}/admin/get-all-categories`, {
             withCredentials: true,
           }),
         ]);
@@ -317,7 +317,7 @@ export default function EditExpenseMobile() {
                 typeof target === 'string' ? target : target?.name;
 
               const res = await axios.delete(
-                `${VITE_API_URL}/expenses/delete-expense-file`,
+                `${API_URL}/expenses/delete-expense-file`,
                 {
                   data: { expenseId, fileName },
                   withCredentials: true,
@@ -414,7 +414,7 @@ export default function EditExpenseMobile() {
       });
 
       const res = await axios.put(
-        `${VITE_API_URL}/expenses/edit-expense/${expenseId}`,
+        `${API_URL}/expenses/edit-expense/${expenseId}`,
         payload,
         {
           withCredentials: true,

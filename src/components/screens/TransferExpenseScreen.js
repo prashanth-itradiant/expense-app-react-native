@@ -1,4 +1,4 @@
-import { VITE_API_URL } from '@env';
+import { API_URL } from '@env';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
@@ -150,10 +150,10 @@ const TransferExpenseScreen = () => {
     try {
       // Fetch expense details and organization users in parallel
       const [expenseResponse, usersResponse] = await Promise.all([
-        axios.get(`${VITE_API_URL}/expenses/get-expense/${id}`, {
+        axios.get(`${API_URL}/expenses/get-expense/${id}`, {
           withCredentials: true,
         }),
-        axios.get(`${VITE_API_URL}/users/get-organization-users`, {
+        axios.get(`${API_URL}/users/get-organization-users`, {
           withCredentials: true,
         }),
       ]);
@@ -224,7 +224,7 @@ const TransferExpenseScreen = () => {
     setTransferring(true);
     try {
       const response = await axios.post(
-        `${VITE_API_URL}/expenses/transfer-expense`,
+        `${API_URL}/expenses/transfer-expense`,
         {
           expenseId: id,
           newEmployeeId: selectedUser,

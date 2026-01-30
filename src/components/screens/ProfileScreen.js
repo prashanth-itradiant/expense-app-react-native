@@ -1,4 +1,4 @@
-import { VITE_API_URL, VITE_IMAGE_URL } from '@env';
+import { API_URL, VITE_IMAGE_URL } from '@env';
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
 import {
@@ -132,7 +132,7 @@ const ProfileScreen = () => {
       }
 
       const response = await axios.put(
-        `${VITE_API_URL}/users/update-profile`,
+        `${API_URL}/users/update-profile`,
         formDataImage,
         {
           headers: { 'Content-Type': 'multipart/form-data' },

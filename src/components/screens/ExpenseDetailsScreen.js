@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable react-native/no-inline-styles */
 
-import { VITE_API_URL } from '@env';
+import { API_URL } from '@env';
 import { useRoute } from '@react-navigation/native';
 import axios from 'axios';
 import { useCallback, useEffect, useState } from 'react';
@@ -33,10 +33,9 @@ export default function ExpenseDetailsScreen() {
 
   const fetchCategories = async () => {
     try {
-      const { data } = await axios.get(
-        `${VITE_API_URL}/admin/get-all-categories`,
-        { withCredentials: true },
-      );
+      const { data } = await axios.get(`${API_URL}/admin/get-all-categories`, {
+        withCredentials: true,
+      });
       setCategories(Array.isArray(data.data) ? data.data : []);
     } catch {
       Toast.show({ type: 'error', text1: 'Failed to load categories' });
@@ -45,10 +44,9 @@ export default function ExpenseDetailsScreen() {
 
   const fetchClients = async () => {
     try {
-      const { data } = await axios.get(
-        `${VITE_API_URL}/admin/get-all-clients`,
-        { withCredentials: true },
-      );
+      const { data } = await axios.get(`${API_URL}/admin/get-all-clients`, {
+        withCredentials: true,
+      });
       setClients(data.data || []);
     } catch {
       Toast.show({ type: 'error', text1: 'Failed to load clients' });
@@ -65,7 +63,7 @@ export default function ExpenseDetailsScreen() {
     setLoading(true);
     try {
       const { data } = await axios.get(
-        `${VITE_API_URL}/expenses/get-expense/${id}`,
+        `${API_URL}/expenses/get-expense/${id}`,
         { withCredentials: true },
       );
       if (data.success) setExpense(data.data);

@@ -1,20 +1,21 @@
-import { VITE_API_URL } from '@env';
+import { API_URL } from '@env';
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import axios from 'axios';
-console.log('VITE_API_URL:', VITE_API_URL);
+console.log('API_URL:', API_URL);
 // ✅ Login user
 export const loginUser = createAsyncThunk(
   'auth/loginUser',
   async ({ email, password }, { rejectWithValue }) => {
     try {
       const { data } = await axios.post(
-        `${VITE_API_URL}/users/login`,
+        `${API_URL}/users/login`,
         { email, password },
         { withCredentials: true },
       );
 
       return data; // expects { user, role }
     } catch (error) {
+      console.log('Login error:', error);
       return rejectWithValue(error.response?.data?.message || 'Login failed!');
     }
   },
@@ -25,7 +26,7 @@ export const fetchUser = createAsyncThunk(
   'auth/fetchUser',
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await axios.get(`${VITE_API_URL}/users/auth/me`, {
+      const { data } = await axios.get(`${API_URL}/users/auth/me`, {
         withCredentials: true,
       });
 

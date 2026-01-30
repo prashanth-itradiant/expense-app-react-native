@@ -1,4 +1,4 @@
-import { VITE_API_URL } from '@env';
+import { API_URL } from '@env';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
@@ -159,7 +159,7 @@ const TeamExpenseDetails = () => {
     setLoading(true);
     try {
       const { data } = await axios.get(
-        `${VITE_API_URL}/expenses/get-expense/${id}`,
+        `${API_URL}/expenses/get-expense/${id}`,
         { withCredentials: true },
       );
       if (data.success) {
@@ -190,7 +190,7 @@ const TeamExpenseDetails = () => {
   const handleApproval = async approvalStatus => {
     try {
       const response = await axios.put(
-        `${VITE_API_URL}/expenses/update-expense-status/${id}`,
+        `${API_URL}/expenses/update-expense-status/${id}`,
         {
           status: approvalStatus,
           remark: remark,

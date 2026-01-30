@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { VITE_API_URL } from '@env';
-import { useRoute } from '@react-navigation/native';
+import { API_URL } from '@env';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
 import {
@@ -12,24 +12,43 @@ import {
   View,
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { COLORS } from '../theme/theme';
+import { COLORS, TYPOGRAPHY } from '../theme/theme';
 import { openFile } from '../utils/openFile';
 
 /* ------------------ helpers ------------------ */
+
 const formatDate = d => (d ? new Date(d).toLocaleDateString() : 'N/A');
 const formatDateTime = d => (d ? new Date(d).toLocaleString() : 'N/A');
 
-/* ------------------ UI components ------------------ */
+const STATUS_MAP = {
+  pending: {
+    bg: '#FEF3C7',
+    text: '#92400E',
+    icon: 'schedule',
+    label: 'PENDING',
+  },
+  completed: {
+    bg: '#DCFCE7',
+    text: '#166534',
+    icon: 'check-circle',
+    label: 'COMPLETED',
+  },
+  cancelled: {
+    bg: '#F3F4F6',
+    text: '#374151',
+    icon: 'cancel',
+    label: 'CANCELLED',
+  },
+};
+
+/* ------------------ reusable UI ------------------ */
+
 const SectionCard = ({ title, icon, children }) => (
   <View style={styles.sectionCard}>
-    {title && (
-      <View style={styles.sectionHeader}>
-        {icon && (
-          <MaterialIcons name={icon} size={18} color={COLORS.primary[600]} />
-        )}
-        <Text style={styles.sectionTitle}>{title}</Text>
-      </View>
-    )}
+    <View style={styles.sectionHeader}>
+      <MaterialIcons name={icon} size={18} color={COLORS.primary[600]} />
+      <Text style={styles.sectionTitle}>{title}</Text>
+    </View>
     {children}
   </View>
 );
@@ -43,18 +62,21 @@ const InfoRow = ({ label, value }) => (
   </View>
 );
 
-const FileRow = ({ file, onPress }) => (
-  <TouchableOpacity onPress={onPress} style={styles.fileRow}>
+const FileRow = ({ file }) => (
+  <TouchableOpacity onPress={() => openFile(file)} style={styles.fileRow}>
     <MaterialIcons name="attach-file" size={18} color={COLORS.primary[600]} />
     <Text numberOfLines={1} style={styles.fileText}>
       {typeof file === 'string' ? file : file?.name || 'View File'}
     </Text>
+    <MaterialIcons name="open-in-new" size={16} color={COLORS.primary[600]} />
   </TouchableOpacity>
 );
 
 /* ------------------ screen ------------------ */
+
 export default function BookingDetailsScreen() {
   const route = useRoute();
+  const navigation = useNavigation();
   const bookingId = route?.params?.id;
 
   const [booking, setBooking] = useState(null);
@@ -66,7 +88,7 @@ export default function BookingDetailsScreen() {
 
   const fetchBooking = async () => {
     try {
-      const res = await axios.get(`${VITE_API_URL}/bookings/${bookingId}`, {
+      const res = await axios.get(`${API_URL}/bookings/${bookingId}`, {
         withCredentials: true,
       });
       if (res.data?.success) setBooking(res.data.data);
@@ -91,14 +113,33 @@ export default function BookingDetailsScreen() {
     );
   }
 
+  const statusUI = STATUS_MAP[booking.status] || STATUS_MAP.pending;
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* HEADER */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{booking.expenseName}</Text>
-        <View style={styles.statusBadge}>
-          <Text style={styles.statusText}>{booking.status}</Text>
+
+        <View style={[styles.statusBadge, { backgroundColor: statusUI.bg }]}>
+          <MaterialIcons name={statusUI.icon} size={14} color={statusUI.text} />
+          <Text style={[styles.statusText, { color: statusUI.text }]}>
+            {statusUI.label}
+          </Text>
         </View>
+
+        {/* CREATE EXPENSE */}
+        {booking.status === 'completed' && (
+          <TouchableOpacity
+            style={styles.createExpenseBtn}
+            onPress={() =>
+              navigation.navigate('AddExpense', { bookingId: booking._id })
+            }
+          >
+            <MaterialIcons name="receipt-long" size={18} color="#fff" />
+            <Text style={styles.createExpenseText}>Create Expense</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* BOOKING INFO */}
@@ -118,43 +159,16 @@ export default function BookingDetailsScreen() {
         <InfoRow label="Created At" value={formatDateTime(booking.createdAt)} />
       </SectionCard>
 
-      {/* TRAVEL */}
-      {booking.type === 'Travel' && (
-        <SectionCard title="Travel Details" icon="flight">
-          <InfoRow label="Travel Type" value={booking.travelType} />
-          <InfoRow label="Class" value={booking.travelClass} />
-          <InfoRow label="From" value={booking.fromLocation} />
-          <InfoRow label="To" value={booking.toLocation} />
-          <InfoRow
-            label="Departure Date"
-            value={formatDate(booking.departureDate)}
-          />
-          <InfoRow label="Departure Time" value={booking.departureTime} />
-          <InfoRow label="Travellers" value={booking.travellers} />
-        </SectionCard>
-      )}
-
-      {/* ACCOMMODATION */}
-      {booking.type === 'Accommodation' && (
-        <SectionCard title="Accommodation Details" icon="hotel">
-          <InfoRow label="Destination" value={booking.destination} />
-          <InfoRow label="Rooms" value={booking.rooms} />
-          <InfoRow label="Guests" value={booking.guests} />
-          <InfoRow
-            label="Check-in Date"
-            value={formatDate(booking.checkinDate)}
-          />
-          <InfoRow
-            label="Check-out Date"
-            value={formatDate(booking.checkoutDate)}
-          />
-        </SectionCard>
-      )}
-
-      {/* OTHER */}
-      {booking.type === 'Other' && (
-        <SectionCard title="Other Details" icon="description">
-          <InfoRow label="Description" value={booking.description} />
+      {/* VIEW TICKET */}
+      {booking.ticketFile && (
+        <SectionCard title="Ticket" icon="confirmation-number">
+          <TouchableOpacity
+            style={styles.ticketBtn}
+            onPress={() => openFile(booking.ticketFile)}
+          >
+            <MaterialIcons name="download" size={20} color="#2563eb" />
+            <Text style={styles.ticketText}>View Ticket</Text>
+          </TouchableOpacity>
         </SectionCard>
       )}
 
@@ -174,29 +188,21 @@ export default function BookingDetailsScreen() {
 
       {/* DOCUMENTS */}
       <SectionCard title="Documents" icon="attach-file">
-        <InfoRow label="Itinerary Comment" value={booking.itineraryComment} />
+        <Text style={styles.subTitle}>Itinerary Documents</Text>
         {booking.itineraryDocs?.length ? (
           booking.itineraryDocs.map((file, i) => (
-            <FileRow
-              key={`it-${i}`}
-              file={file}
-              onPress={() => openFile(file)}
-            />
+            <FileRow key={`it-${i}`} file={file} />
           ))
         ) : (
           <Text style={styles.emptyText}>No itinerary files</Text>
         )}
 
-        <View style={{ height: 10 }} />
+        <View style={{ height: 12 }} />
 
-        <InfoRow label="Supporting Comment" value={booking.supportingComment} />
+        <Text style={styles.subTitle}>Supporting Documents</Text>
         {booking.supportingDocs?.length ? (
           booking.supportingDocs.map((file, i) => (
-            <FileRow
-              key={`sp-${i}`}
-              file={file}
-              onPress={() => openFile(file)}
-            />
+            <FileRow key={`sp-${i}`} file={file} />
           ))
         ) : (
           <Text style={styles.emptyText}>No supporting files</Text>
@@ -209,26 +215,50 @@ export default function BookingDetailsScreen() {
 }
 
 /* ------------------ styles ------------------ */
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background.secondary },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   header: {
     padding: 20,
-    backgroundColor: COLORS.primary[600],
+    backgroundColor: COLORS.primary,
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
   },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: '#fff' },
+  headerTitle: {
+    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.text.primary,
+  },
+
   statusBadge: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 20,
+    alignSelf: 'flex-start',
   },
-  statusText: { color: '#fff', fontWeight: '600', fontSize: 12 },
+  statusText: { fontWeight: '700', fontSize: 12 },
+
+  createExpenseBtn: {
+    marginTop: 14,
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    backgroundColor: '#059669',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+  },
+  createExpenseText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
 
   sectionCard: {
     backgroundColor: '#fff',
@@ -241,9 +271,10 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
     marginBottom: 12,
   },
-  sectionTitle: { marginLeft: 8, fontSize: 16, fontWeight: '700' },
+  sectionTitle: { fontSize: 16, fontWeight: '700' },
 
   infoRow: {
     flexDirection: 'row',
@@ -259,21 +290,39 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
 
+  ticketBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+  },
+  ticketText: {
+    color: '#2563eb',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+
   fileRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 8,
+    gap: 6,
   },
   fileText: {
-    marginLeft: 6,
     color: COLORS.primary[600],
     fontWeight: '600',
     flex: 1,
   },
 
+  subTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+
   emptyText: {
     color: '#9ca3af',
     fontSize: 13,
-    marginTop: 6,
+    marginTop: 4,
   },
 });

@@ -1,3 +1,4 @@
+import { API_URL } from '@env';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
 
@@ -10,10 +11,9 @@ export function useAdministrativeStatus() {
 
     const checkAdmin = async () => {
       try {
-        const { data } = await axios.get(
-          `${process.env.VITE_API_URL}/admin/is-administrative`,
-          { withCredentials: true },
-        );
+        const { data } = await axios.get(`${API_URL}/admin/is-administrative`, {
+          withCredentials: true,
+        });
 
         if (mounted) {
           setIsAdministrative(Boolean(data?.data?.isAdministrative));

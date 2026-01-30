@@ -1,6 +1,6 @@
 /* eslint-disable react/no-unstable-nested-components */
 /* eslint-disable react-native/no-inline-styles */
-import { VITE_API_URL } from '@env';
+import { API_URL } from '@env';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
@@ -21,7 +21,7 @@ import { COLORS, COMPONENT_STYLES } from '../theme/theme';
 
 /* -------------------- API -------------------- */
 const fetchExpenses = async () => {
-  const { data } = await axios.get(`${VITE_API_URL}/expenses/user-expenses`, {
+  const { data } = await axios.get(`${API_URL}/expenses/user-expenses`, {
     withCredentials: true,
   });
 

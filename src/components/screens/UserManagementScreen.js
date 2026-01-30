@@ -1,4 +1,4 @@
-import { VITE_API_URL } from '@env';
+import { API_URL } from '@env';
 import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
 import { useCallback, useEffect, useState } from 'react';
@@ -38,7 +38,7 @@ export default function UserManagementScreen() {
     }
 
     try {
-      const { data } = await axios.get(`${VITE_API_URL}/users/userlist`, {
+      const { data } = await axios.get(`${API_URL}/users/userlist`, {
         withCredentials: true,
       });
       if (data.success && Array.isArray(data.data)) {

@@ -1,4 +1,4 @@
-import { VITE_API_URL } from '@env';
+import { API_URL } from '@env';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
@@ -26,7 +26,7 @@ import {
 
 // Fetch organizational expenses
 const fetchOrganizationalExpenses = async () => {
-  const { data } = await axios.get(`${VITE_API_URL}/expenses/team-expenses`, {
+  const { data } = await axios.get(`${API_URL}/expenses/team-expenses`, {
     withCredentials: true,
   });
 

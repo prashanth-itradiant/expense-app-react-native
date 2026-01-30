@@ -1,4 +1,4 @@
-import { VITE_API_URL } from '@env';
+import { API_URL } from '@env';
 import axios from 'axios';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -44,7 +44,7 @@ const DepartmentListScreen = () => {
 
     try {
       const response = await axios.get(
-        `${VITE_API_URL}/departments/get-departments`,
+        `${API_URL}/departments/get-departments`,
         { withCredentials: true },
       );
 
@@ -111,7 +111,7 @@ const DepartmentListScreen = () => {
     setAddingDepartment(true);
     try {
       const response = await axios.post(
-        `${VITE_API_URL}/departments/add-department`,
+        `${API_URL}/departments/add-department`,
         { name: departmentName.trim() },
         { withCredentials: true },
       );
@@ -156,10 +156,9 @@ const DepartmentListScreen = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await axios.delete(
-                `${VITE_API_URL}/departments/${department._id}`,
-                { withCredentials: true },
-              );
+              await axios.delete(`${API_URL}/departments/${department._id}`, {
+                withCredentials: true,
+              });
 
               Toast.show({
                 type: 'success',

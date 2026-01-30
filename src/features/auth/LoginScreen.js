@@ -67,6 +67,8 @@ const LoginScreen = ({ navigation }) => {
       // 1️⃣ Login the user
       const response = await dispatch(loginUser(formData)).unwrap();
 
+      console.log('Login Response:', response);
+
       // 2️⃣ Fetch the authenticated user immediately
       await dispatch(fetchUser()).unwrap();
 

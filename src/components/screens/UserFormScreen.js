@@ -1,4 +1,4 @@
-import { VITE_API_URL } from '@env';
+import { API_URL } from '@env';
 import { Picker } from '@react-native-picker/picker';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
@@ -57,7 +57,7 @@ const UserFormScreen = ({ navigation }) => {
       setDepartmentsLoading(true);
       try {
         const response = await axios.get(
-          `${VITE_API_URL}/departments/get-departments`,
+          `${API_URL}/departments/get-departments`,
           { withCredentials: true },
         );
         if (response.data.success) {
@@ -114,11 +114,9 @@ const UserFormScreen = ({ navigation }) => {
 
     setLoading(true);
     try {
-      const response = await axios.post(
-        `${VITE_API_URL}/users/register`,
-        formData,
-        { withCredentials: true },
-      );
+      const response = await axios.post(`${API_URL}/users/register`, formData, {
+        withCredentials: true,
+      });
 
       // Reset form
       setFormData({
