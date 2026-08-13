@@ -644,8 +644,8 @@ const styles = StyleSheet.create({
   },
   headerIconContainer: {
     width: 64,
-    height: 64,
-    borderRadius: 32,
+    height: 48,
+    borderRadius: 18,
     backgroundColor: COLORS.primary[50],
     alignItems: 'center',
     justifyContent: 'center',

@@ -7,6 +7,8 @@ import {
   Alert,
   FlatList,
   Modal,
+  Platform,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -14,8 +16,32 @@ import {
   View,
 } from 'react-native';
 import DatePicker from 'react-native-date-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { openFile } from '../utils/openFile';
+
+/* ---------------- theme (white + navy) ---------------- */
+
+const NAVY = {
+  primary: '#0B1F45',
+  primaryLight: '#12295E',
+  bg: '#F5F6F8',
+  surface: '#FFFFFF',
+  border: '#E1E4EA',
+  fieldBg: '#F0F2F5',
+  accentBg: '#EEF1F8',
+  textPrimary: '#111827',
+  textSecondary: '#6B7280',
+  inactive: '#9AA1AC',
+  success: '#0F8A5F',
+  successBg: '#DCFCE7',
+  warning: '#B45309',
+  warningBg: '#FEF3C7',
+  error: '#DC2626',
+  errorBg: '#FEE2E2',
+  cancelled: '#6B7280',
+  cancelledBg: '#F3F4F6',
+};
 
 /* ---------------- API ---------------- */
 
@@ -30,6 +56,7 @@ const fetchMyBookings = async () => {
 
 export default function MyBookingsScreen({ navigation }) {
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
 
   const { data = [], isLoading } = useQuery({
     queryKey: ['bookings', 'my'],
@@ -104,20 +131,42 @@ export default function MyBookingsScreen({ navigation }) {
 
   if (isLoading) {
     return (
-      <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#2563eb" />
+      <View
+        style={[
+          styles.loader,
+          { paddingTop: insets.top, paddingBottom: insets.bottom },
+        ]}
+      >
+        <StatusBar
+          barStyle="dark-content"
+          backgroundColor={NAVY.bg}
+          translucent={Platform.OS === 'android'}
+        />
+        <ActivityIndicator size="large" color={NAVY.primary} />
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <View
+      style={[
+        styles.root,
+        { paddingTop: insets.top, paddingBottom: insets.bottom },
+      ]}
+    >
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor={NAVY.surface}
+        translucent={Platform.OS === 'android'}
+      />
+
       {/* SEARCH + FILTER BAR */}
       <View style={styles.topBar}>
         <View style={styles.searchBox}>
-          <MaterialIcons name="search" size={20} color="#6b7280" />
+          <MaterialIcons name="search" size={18} color={NAVY.inactive} />
           <TextInput
             placeholder="Search booking..."
+            placeholderTextColor={NAVY.inactive}
             value={search}
             onChangeText={setSearch}
             style={styles.searchInput}
@@ -126,12 +175,13 @@ export default function MyBookingsScreen({ navigation }) {
 
         <TouchableOpacity
           style={styles.filterBtn}
+          activeOpacity={0.8}
           onPress={() => {
             setTempFilters(filters);
             setShowFilter(true);
           }}
         >
-          <MaterialIcons name="tune" size={22} color="#2563eb" />
+          <MaterialIcons name="tune" size={20} color={NAVY.primary} />
         </TouchableOpacity>
       </View>
 
@@ -139,12 +189,24 @@ export default function MyBookingsScreen({ navigation }) {
       <FlatList
         data={filtered}
         keyExtractor={item => item._id}
-        contentContainerStyle={{ padding: 12 }}
-        ListEmptyComponent={<Text style={styles.empty}>No bookings found</Text>}
+        contentContainerStyle={{
+          padding: 12,
+          paddingTop: 4,
+          paddingBottom: 20,
+        }}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyWrap}>
+            <MaterialIcons name="search-off" size={34} color={NAVY.inactive} />
+            <Text style={styles.empty}>No bookings found</Text>
+          </View>
+        }
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View style={styles.header}>
-              <Text style={styles.title}>{item.expenseName}</Text>
+              <Text style={styles.title} numberOfLines={1}>
+                {item.expenseName}
+              </Text>
               <StatusBadge status={item.status} />
             </View>
 
@@ -153,9 +215,10 @@ export default function MyBookingsScreen({ navigation }) {
             {item.ticketFile && (
               <TouchableOpacity
                 style={styles.ticketBtn}
+                activeOpacity={0.7}
                 onPress={() => openFile(item.ticketFile)}
               >
-                <MaterialIcons name="download" size={18} color="#2563eb" />
+                <MaterialIcons name="download" size={16} color={NAVY.primary} />
                 <Text style={styles.ticketText}>View Ticket</Text>
               </TouchableOpacity>
             )}
@@ -164,6 +227,8 @@ export default function MyBookingsScreen({ navigation }) {
               <ActionBtn
                 icon="visibility"
                 label="Details"
+                color={NAVY.primary}
+                bg={NAVY.accentBg}
                 onPress={() =>
                   navigation.navigate('BookingDetails', {
                     id: item._id,
@@ -175,8 +240,8 @@ export default function MyBookingsScreen({ navigation }) {
                 <ActionBtn
                   icon="receipt-long"
                   label="Create Expense"
-                  color="#059669"
-                  bg="#d1fae5"
+                  color={NAVY.success}
+                  bg={NAVY.successBg}
                   onPress={() =>
                     navigation.navigate('Expenses', {
                       screen: 'AddExpense',
@@ -192,8 +257,8 @@ export default function MyBookingsScreen({ navigation }) {
                 <ActionBtn
                   icon="close"
                   label="Cancel"
-                  color="#dc2626"
-                  bg="#fee2e2"
+                  color={NAVY.error}
+                  bg={NAVY.errorBg}
                   onPress={() => cancelBooking(item._id)}
                 />
               )}
@@ -202,10 +267,16 @@ export default function MyBookingsScreen({ navigation }) {
         )}
       />
 
-      {/* FILTER MODAL (LinkedIn Style) */}
+      {/* FILTER MODAL */}
       <Modal visible={showFilter} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modal}>
+          <View
+            style={[
+              styles.modal,
+              { paddingBottom: Math.max(insets.bottom, 14) },
+            ]}
+          >
+            <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Filters</Text>
 
             <Text style={styles.modalLabel}>Status</Text>
@@ -251,6 +322,7 @@ export default function MyBookingsScreen({ navigation }) {
 
               <TouchableOpacity
                 style={styles.applyBtn}
+                activeOpacity={0.85}
                 onPress={() => {
                   setFilters(tempFilters);
                   setShowFilter(false);
@@ -303,8 +375,9 @@ const ChipRow = ({ options, value, onChange }) => (
       >
         <Text
           style={{
-            color: value === o ? '#fff' : '#374151',
+            color: value === o ? '#fff' : NAVY.textSecondary,
             fontWeight: '600',
+            fontSize: 12,
           }}
         >
           {o.toUpperCase()}
@@ -314,15 +387,19 @@ const ChipRow = ({ options, value, onChange }) => (
   </View>
 );
 
+const STATUS_COLORS = {
+  pending: { bg: NAVY.warningBg, text: NAVY.warning },
+  completed: { bg: NAVY.successBg, text: NAVY.success },
+  cancelled: { bg: NAVY.cancelledBg, text: NAVY.cancelled },
+};
+
 const StatusBadge = ({ status }) => {
-  const map = {
-    pending: '#f59e0b',
-    completed: '#16a34a',
-    cancelled: '#6b7280',
-  };
+  const c = STATUS_COLORS[status] || STATUS_COLORS.cancelled;
   return (
-    <View style={[styles.badge, { backgroundColor: map[status] }]}>
-      <Text style={styles.badgeText}>{status?.toUpperCase()}</Text>
+    <View style={[styles.badge, { backgroundColor: c.bg }]}>
+      <Text style={[styles.badgeText, { color: c.text }]}>
+        {status?.toUpperCase()}
+      </Text>
     </View>
   );
 };
@@ -331,21 +408,26 @@ const ActionBtn = ({
   icon,
   label,
   onPress,
-  color = '#2563eb',
-  bg = '#dbeafe',
+  color = NAVY.primary,
+  bg = NAVY.accentBg,
 }) => (
   <TouchableOpacity
     onPress={onPress}
+    activeOpacity={0.75}
     style={[styles.actionBtn, { backgroundColor: bg }]}
   >
-    <MaterialIcons name={icon} size={18} color={color} />
+    <MaterialIcons name={icon} size={16} color={color} />
     <Text style={[styles.actionText, { color }]}>{label}</Text>
   </TouchableOpacity>
 );
 
 const DateBtn = ({ label, value, onPress }) => (
-  <TouchableOpacity onPress={onPress} style={styles.dateBtn}>
-    <MaterialIcons name="calendar-today" size={16} color="#2563eb" />
+  <TouchableOpacity
+    onPress={onPress}
+    style={styles.dateBtn}
+    activeOpacity={0.8}
+  >
+    <MaterialIcons name="calendar-today" size={14} color={NAVY.primary} />
     <Text style={styles.dateText}>{value ? value.toDateString() : label}</Text>
   </TouchableOpacity>
 );
@@ -353,114 +435,172 @@ const DateBtn = ({ label, value, onPress }) => (
 /* ---------------- STYLES ---------------- */
 
 const styles = StyleSheet.create({
-  loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  root: { flex: 1, backgroundColor: NAVY.bg },
+  loader: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: NAVY.bg,
+  },
 
   topBar: {
     flexDirection: 'row',
     padding: 12,
+    paddingBottom: 8,
     gap: 8,
+    backgroundColor: NAVY.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: NAVY.border,
   },
 
   searchBox: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 12,
+    backgroundColor: NAVY.fieldBg,
+    borderRadius: 10,
     paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: NAVY.border,
   },
-  searchInput: { flex: 1, padding: 8 },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 9,
+    marginLeft: 6,
+    fontSize: 14,
+    color: NAVY.textPrimary,
+  },
 
   filterBtn: {
-    width: 44,
-    borderRadius: 12,
-    backgroundColor: '#e0f2fe',
+    width: 42,
+    borderRadius: 10,
+    backgroundColor: NAVY.accentBg,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: NAVY.border,
   },
 
   card: {
-    backgroundColor: '#fff',
-    padding: 14,
-    borderRadius: 14,
+    backgroundColor: NAVY.surface,
+    padding: 12,
+    borderRadius: 12,
     marginBottom: 10,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: NAVY.border,
   },
 
-  header: { flexDirection: 'row', justifyContent: 'space-between' },
-  title: { fontSize: 15, fontWeight: '700' },
-  meta: { color: '#6b7280', marginVertical: 4 },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  title: { fontSize: 14, fontWeight: '700', color: NAVY.textPrimary, flex: 1 },
+  meta: { color: NAVY.textSecondary, fontSize: 12.5, marginVertical: 4 },
 
-  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  badgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  badge: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 12 },
+  badgeText: { fontSize: 11, fontWeight: '700' },
 
-  ticketBtn: { flexDirection: 'row', gap: 6, marginTop: 6 },
-  ticketText: { color: '#2563eb', fontWeight: '600' },
+  ticketBtn: {
+    flexDirection: 'row',
+    gap: 5,
+    marginTop: 4,
+    alignItems: 'center',
+  },
+  ticketText: { color: NAVY.primary, fontWeight: '600', fontSize: 12.5 },
 
-  actions: { flexDirection: 'row', gap: 10, marginTop: 10, flexWrap: 'wrap' },
+  actions: { flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' },
 
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    padding: 8,
-    borderRadius: 10,
+    gap: 5,
+    paddingVertical: 7,
+    paddingHorizontal: 9,
+    borderRadius: 9,
   },
-  actionText: { fontWeight: '600' },
+  actionText: { fontWeight: '600', fontSize: 12.5 },
 
-  empty: { textAlign: 'center', marginTop: 40, color: '#9ca3af' },
+  emptyWrap: { alignItems: 'center', marginTop: 60, gap: 8 },
+  empty: { color: NAVY.inactive, fontSize: 13 },
 
   /* MODAL */
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(11,31,69,0.45)',
     justifyContent: 'flex-end',
   },
   modal: {
-    backgroundColor: '#fff',
+    backgroundColor: NAVY.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 16,
   },
-  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 10 },
-  modalLabel: { fontSize: 13, fontWeight: '700', marginTop: 10 },
-
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#e5e7eb',
+  modalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: NAVY.border,
+    alignSelf: 'center',
+    marginBottom: 10,
   },
-  chipActive: { backgroundColor: '#2563eb' },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: NAVY.textPrimary,
+    marginBottom: 8,
+  },
+  modalLabel: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: NAVY.textSecondary,
+    marginTop: 10,
+  },
+
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 6 },
+  chip: {
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: NAVY.fieldBg,
+    borderWidth: 1,
+    borderColor: NAVY.border,
+  },
+  chipActive: { backgroundColor: NAVY.primary, borderColor: NAVY.primary },
 
   dateRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 12,
+    gap: 8,
   },
   dateBtn: {
+    flex: 1,
     flexDirection: 'row',
-    gap: 6,
+    gap: 5,
     alignItems: 'center',
-    padding: 10,
-    borderRadius: 10,
-    backgroundColor: '#e0f2fe',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    borderRadius: 9,
+    backgroundColor: NAVY.accentBg,
+    borderWidth: 1,
+    borderColor: NAVY.border,
   },
-  dateText: { color: '#2563eb', fontWeight: '600' },
+  dateText: { color: NAVY.primary, fontWeight: '600', fontSize: 12.5 },
 
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
+    marginTop: 16,
     alignItems: 'center',
   },
-  clear: { color: '#dc2626', fontWeight: '700' },
+  clear: { color: NAVY.error, fontWeight: '700', fontSize: 13.5 },
   applyBtn: {
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    backgroundColor: NAVY.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
     borderRadius: 10,
   },
-  applyText: { color: '#fff', fontWeight: '700' },
+  applyText: { color: '#fff', fontWeight: '700', fontSize: 13.5 },
 });

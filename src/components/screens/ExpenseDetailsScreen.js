@@ -22,7 +22,7 @@ import { openFile } from '../utils/openFile';
 
 export default function ExpenseDetailsScreen() {
   const route = useRoute();
-  const { id } = route.params;
+  const id = route.params?.id || route.params?._id;
 
   const [expense, setExpense] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -60,6 +60,11 @@ export default function ExpenseDetailsScreen() {
   /* ---------------- FETCH DETAILS ---------------- */
 
   const fetchExpenseDetails = useCallback(async () => {
+    if (!id) {
+      setLoading(false);
+      Toast.show({ type: 'error', text1: 'Missing expense ID' });
+      return;
+    }
     setLoading(true);
     try {
       const { data } = await axios.get(
@@ -68,8 +73,12 @@ export default function ExpenseDetailsScreen() {
       );
       if (data.success) setExpense(data.data);
       else Toast.show({ type: 'error', text1: 'Failed to fetch details' });
-    } catch {
-      Toast.show({ type: 'error', text1: 'Error fetching details' });
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: 'Could not open expense',
+        text2: error.response?.data?.message || error.message,
+      });
     } finally {
       setLoading(false);
     }
@@ -133,7 +142,9 @@ export default function ExpenseDetailsScreen() {
             color="#FFF"
           />
           <Text style={styles.headerStatus}>
-            {expense.status.replace(/_/g, ' ').toUpperCase()}
+            {String(expense.status || 'pending')
+              .replace(/_/g, ' ')
+              .toUpperCase()}
           </Text>
         </View>
       </LinearGradient>
@@ -151,8 +162,8 @@ export default function ExpenseDetailsScreen() {
           ['Finance', expense.financeId?.name],
           ['Currency', expense.currency],
           ['Total Reimbursement', expense.totalReimbursement],
-          ['From', new Date(expense.periodFrom).toLocaleDateString()],
-          ['To', new Date(expense.periodTo).toLocaleDateString()],
+          ['From', formatDate(expense.periodFrom)],
+          ['To', formatDate(expense.periodTo)],
           ['Client', getClientName(expense.clientId)],
           ['Reference No', expense.reference],
           ['Advance Amount', expense.advanceAmount],
@@ -164,7 +175,7 @@ export default function ExpenseDetailsScreen() {
       {/* SUB EXPENSES */}
       <Section title="Sub-Expenses" icon="list" />
 
-      {expense.subExpenses.map((sub, index) => (
+      {(expense.subExpenses || []).map((sub, index) => (
         <View key={sub._id} style={[styles.subExpenseCard, styles.cardShadow]}>
           <View style={styles.subExpenseHeader}>
             <View style={styles.subExpenseNumber}>
@@ -185,10 +196,7 @@ export default function ExpenseDetailsScreen() {
             </View>
           </View>
 
-          <Info
-            label="Document Date"
-            value={new Date(sub.documentDate).toLocaleDateString()}
-          />
+          <Info label="Document Date" value={formatDate(sub.documentDate)} />
           <Info label="Vendor" value={sub.vendor} />
           <Info label="GL Account" value={sub.gl_account} />
           <Info label="Description" value={sub.description} />
@@ -245,7 +253,9 @@ export default function ExpenseDetailsScreen() {
 const Info = ({ label, value }) => (
   <View style={styles.webRow}>
     <Text style={styles.webLabel}>{label}</Text>
-    <Text style={styles.webValue}>{value || 'N/A'}</Text>
+    <Text style={styles.webValue}>
+      {value === 0 ? '0' : String(value || 'N/A')}
+    </Text>
   </View>
 );
 
@@ -261,17 +271,17 @@ const Section = ({ title, icon }) => (
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingContainer: { padding: 32, borderRadius: 16 },
+  loadingContainer: { padding: 14, borderRadius: 12 },
   loadingText: { color: '#FFF', marginTop: 16 },
-  errorText: { marginTop: 16, color: '#EF4444', fontSize: 18 },
+  errorText: { marginTop: 16, color: '#EF4444', fontSize: 16 },
 
   headerGradient: {
-    padding: 20,
+    padding: 14,
     paddingTop: 60,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
   },
-  headerTitle: { fontSize: 22, fontWeight: '700', color: '#FFF' },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: '#FFF' },
   headerStatusContainer: {
     flexDirection: 'row',
     alignSelf: 'center',
@@ -279,20 +289,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: 14,
   },
   headerStatus: { marginLeft: 8, color: '#FFF', fontWeight: '600' },
 
   mainCard: {
     backgroundColor: '#FFF',
     borderRadius: 12,
-    padding: 20,
+    padding: 14,
     margin: 16,
     marginTop: -40,
   },
 
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  cardTitle: { marginLeft: 10, fontSize: 18, fontWeight: '700' },
+  cardTitle: { marginLeft: 10, fontSize: 16, fontWeight: '700' },
 
   webRow: {
     flexDirection: 'row',
@@ -308,14 +318,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginHorizontal: 16,
-    marginTop: 24,
+    marginTop: 16,
   },
-  sectionTitle: { marginLeft: 10, fontSize: 18, fontWeight: '700' },
+  sectionTitle: { marginLeft: 10, fontSize: 16, fontWeight: '700' },
 
   subExpenseCard: {
     backgroundColor: '#FFF',
     borderRadius: 12,
-    padding: 20,
+    padding: 14,
     margin: 16,
   },
 
@@ -327,7 +337,7 @@ const styles = StyleSheet.create({
   subExpenseNumber: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 12,
     backgroundColor: PRIMARY_COLOR,
     justifyContent: 'center',
     alignItems: 'center',

@@ -36,7 +36,6 @@ const TeamExpenseDetails = () => {
   const [remark, setRemark] = useState('');
   const [selectedSubExpenses, setSelectedSubExpenses] = useState([]);
   const user = useSelector(state => state.auth.data);
-  console.log('User:', user);
 
   useEffect(() => {
     fetchExpenseDetails();
@@ -261,21 +260,7 @@ const TeamExpenseDetails = () => {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Enhanced Back Button */}
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-        activeOpacity={0.7}
-      >
-        <MaterialIcons
-          name="arrow-back"
-          size={20}
-          color={COLORS.primary[600]}
-        />
-        <Text style={styles.backButtonText}>Back to Expenses</Text>
-      </TouchableOpacity>
-
-      {/* Enhanced Expense Details Card */}
+      {/* Expense summary */}
       <View style={styles.mainCard}>
         <View style={styles.cardHeader}>
           <Text style={styles.cardTitle}>Expense Details</Text>
@@ -292,20 +277,51 @@ const TeamExpenseDetails = () => {
         </View>
 
         <View style={styles.detailsGrid}>
+          <DetailRow
+            label="Employee"
+            value={expense.employee?.name || expense.employeeId?.name || 'N/A'}
+          />
           <DetailRow label="Expense Name" value={expense.expenseName} />
           <DetailRow label="Manager" value={expense.managerId?.name || 'N/A'} />
           <DetailRow label="Finance" value={expense.financeId?.name || 'N/A'} />
           <DetailRow label="Currency" value={expense.currency || 'N/A'} />
+          <DetailRow
+            label="Total"
+            value={`${expense.currency || ''} ${Number(
+              expense.totalReimbursement || 0,
+            ).toLocaleString()}`}
+          />
         </View>
       </View>
 
       {/* Enhanced Sub-Expenses Section */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Sub-Expenses</Text>
-        <Text style={styles.sectionSubtitle}>
-          {expense.subExpenses.length} item
-          {expense.subExpenses.length !== 1 ? 's' : ''}
-        </Text>
+        <View>
+          <Text style={styles.sectionTitle}>Expense Items</Text>
+          <Text style={styles.sectionSubtitle}>
+            {expense.subExpenses.length} item
+            {expense.subExpenses.length !== 1 ? 's' : ''} ·{' '}
+            {selectedSubExpenses.length} selected
+          </Text>
+        </View>
+        {canApprove && (
+          <TouchableOpacity
+            style={styles.selectAllButton}
+            onPress={() =>
+              setSelectedSubExpenses(
+                selectedSubExpenses.length === expense.subExpenses.length
+                  ? []
+                  : expense.subExpenses.map(item => item._id),
+              )
+            }
+          >
+            <Text style={styles.selectAllText}>
+              {selectedSubExpenses.length === expense.subExpenses.length
+                ? 'Clear'
+                : 'Select all'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {expense.subExpenses.map((sub, index) => (
@@ -325,9 +341,9 @@ const TeamExpenseDetails = () => {
       {/* Enhanced Remark Section */}
       {canApprove && (
         <View style={styles.remarkCard}>
-          <Text style={styles.remarkTitle}>Add Remark</Text>
+          <Text style={styles.remarkTitle}>Review remark</Text>
           <Text style={styles.remarkSubtitle}>
-            Provide additional comments or feedback for this expense
+            Add concise feedback for the selected items
           </Text>
           <TextInput
             style={styles.remarkInput}
@@ -336,7 +352,7 @@ const TeamExpenseDetails = () => {
             value={remark}
             onChangeText={setRemark}
             multiline
-            numberOfLines={4}
+            numberOfLines={3}
           />
         </View>
       )}
@@ -687,6 +703,17 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.text.primary,
   },
+  selectAllButton: {
+    backgroundColor: COLORS.primary[50],
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.lg,
+  },
+  selectAllText: {
+    color: COLORS.primary[700],
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+  },
   sectionSubtitle: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.text.tertiary,
@@ -862,7 +889,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg,
-    minHeight: 80,
+    minHeight: 68,
     textAlignVertical: 'top',
     fontSize: TYPOGRAPHY.fontSize.base,
     color: COLORS.text.primary,
@@ -871,7 +898,7 @@ const styles = StyleSheet.create({
   // Action Section
   actionSection: {
     marginHorizontal: LAYOUT.screenPadding,
-    marginBottom: SPACING['6xl'],
+    marginBottom: SPACING['2xl'],
   },
   actionTitle: {
     fontSize: TYPOGRAPHY.fontSize.lg,
@@ -881,9 +908,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   actionButtons: {
-    gap: SPACING.md,
+    flexDirection: 'row',
+    gap: SPACING.sm,
   },
   actionButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -893,7 +922,7 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   actionButtonText: {
-    fontSize: TYPOGRAPHY.fontSize.base,
+    fontSize: TYPOGRAPHY.fontSize.xs,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
   approveButton: {

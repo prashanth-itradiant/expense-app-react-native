@@ -149,7 +149,7 @@ export default function FinanceBookingsScreen() {
     <FlatList
       data={filtered}
       keyExtractor={item => item._id}
-      contentContainerStyle={{ padding: 16 }}
+      contentContainerStyle={{ padding: 12 }}
       ListHeaderComponent={
         <>
           <Text style={styles.title}>Finance – Booking Approvals</Text>
@@ -295,13 +295,13 @@ export default function FinanceBookingsScreen() {
 
 const styles = StyleSheet.create({
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 22, fontWeight: '700', marginBottom: 12 },
+  title: { fontSize: 16, fontWeight: '700', marginBottom: 12 },
 
   tabs: { flexDirection: 'row', gap: 6, marginBottom: 10 },
   tab: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: 14,
     backgroundColor: '#e5e7eb',
   },
   tabActive: { backgroundColor: '#2563eb' },
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
 
   card: {
     backgroundColor: '#fff',
-    padding: 16,
+    padding: 12,
     borderRadius: 14,
     marginBottom: 12,
   },

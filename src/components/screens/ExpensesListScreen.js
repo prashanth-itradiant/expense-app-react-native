@@ -27,7 +27,7 @@ const fetchExpenses = async () => {
 
   return data.success
     ? data.data.map((e, index) => ({
-        id: e._id || index + 1,
+        id: e._id,
         title: e.expenseName,
         managerApproval: e.managerApproval?.approved || 'pending',
         financeApproval: e.financeApproval?.approved || 'pending',
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     backgroundColor: '#e5e7eb',
-    borderRadius: 20,
+    borderRadius: 14,
     marginRight: 10,
   },
   activeTabBtn: { backgroundColor: COLORS.primary[600] },
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     marginBottom: 10,
   },
-  headerTitle: { fontSize: 24, fontWeight: '700' },
+  headerTitle: { fontSize: 17, fontWeight: '700' },
   headerSubtitle: { color: '#777' },
   addButton: {
     flexDirection: 'row',
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     flex: 1,
   },
-  amount: { fontSize: 18, fontWeight: '700', color: COLORS.primary[600] },
+  amount: { fontSize: 16, fontWeight: '700', color: COLORS.primary[600] },
 
   statusText: { color: '#444', marginTop: 2 },
 

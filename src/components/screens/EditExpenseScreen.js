@@ -751,14 +751,14 @@ export default function EditExpenseMobile() {
                 onPress={() => pickFiles(idx)}
               >
                 <MaterialIcons name="attach-file" size={18} color="#fff" />
-                <Text style={styles.pickBtnText}>Add Files</Text>
+                <Text style={styles.pickBtnText}>Add Files </Text>
               </TouchableOpacity>
             </View>
           );
         })}
       </View>
 
-      <View style={[styles.section, { marginBottom: 40 }]}>
+      <View style={[styles.section, { marginBottom: 16 }]}>
         <Text style={styles.finalTotal}>
           Total: {totalReimbursement} {form.currency || ''}
         </Text>
@@ -820,7 +820,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    padding: 14,
     backgroundColor: LIGHT_BG,
   },
   loadingText: { marginTop: 12, color: INACTIVE_COLOR },
@@ -832,7 +832,7 @@ const styles = StyleSheet.create({
     padding: 12,
     ...CARD_SHADOW,
   },
-  sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 8 },
   label: { fontSize: 13, color: '#374151', marginTop: 8, marginBottom: 6 },
 
   input: {
@@ -862,7 +862,7 @@ const styles = StyleSheet.create({
     backgroundColor: PRIMARY_COLOR,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 14,
   },
   addItemText: { color: '#fff', marginLeft: 8, fontWeight: '700' },
 

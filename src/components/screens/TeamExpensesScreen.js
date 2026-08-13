@@ -11,6 +11,7 @@ import {
   FlatList,
   Linking,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -59,7 +60,14 @@ const fetchApprovedExpenses = async ({ queryKey }) => {
 // small segmented tab
 function Segmented({ tabs, active, onChange }) {
   return (
-    <View style={segStyles.row}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      bounces={false}
+      nestedScrollEnabled
+      style={segStyles.scroller}
+      contentContainerStyle={segStyles.row}
+    >
       {tabs.map(t => {
         const activeTab = t.key === active;
         return (
@@ -70,6 +78,7 @@ function Segmented({ tabs, active, onChange }) {
             activeOpacity={0.8}
           >
             <Text
+              numberOfLines={1}
               style={[segStyles.tabText, activeTab && segStyles.tabTextActive]}
             >
               {t.label}
@@ -77,7 +86,7 @@ function Segmented({ tabs, active, onChange }) {
           </TouchableOpacity>
         );
       })}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -334,7 +343,7 @@ export default function TeamExpensesListScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.background.secondary }}>
       <View style={{ padding: SPACING.md }}>
-        <Text style={{ fontWeight: '700', fontSize: 18, marginBottom: 8 }}>
+        <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 8 }}>
           Team Expenses
         </Text>
 
@@ -381,7 +390,7 @@ export default function TeamExpensesListScreen() {
 
       {loading ? (
         <ActivityIndicator
-          style={{ marginTop: 40 }}
+          style={{ marginTop: 16 }}
           color={COLORS.primary[600]}
         />
       ) : null}
@@ -512,6 +521,7 @@ export default function TeamExpensesListScreen() {
 }
 
 const segStyles = StyleSheet.create({
+  scroller: { flexGrow: 0 },
   row: {
     flexDirection: 'row',
     backgroundColor: 'transparent',
@@ -519,6 +529,8 @@ const segStyles = StyleSheet.create({
     overflow: 'hidden',
   },
   tab: {
+    minWidth: 92,
+    alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 12,
     backgroundColor: '#F3F4F6',

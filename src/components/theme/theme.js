@@ -2,16 +2,16 @@
 export const COLORS = {
   // Primary Brand Colors
   primary: {
-    50: '#EEF2FF',
-    100: '#E0E7FF',
-    200: '#C7D2FE',
-    300: '#A5B4FC',
-    400: '#818CF8',
-    500: '#6366F1', // Main primary
-    600: '#4F46E5', // Current primary
-    700: '#4338CA',
-    800: '#3730A3',
-    900: '#312E81',
+    50: '#F1F5FB',
+    100: '#DFE7F5',
+    200: '#BCCBE6',
+    300: '#91A7D0',
+    400: '#607FB7',
+    500: '#345B9B', // Main primary
+    600: '#243E78', // Current primary
+    700: '#1F3566',
+    800: '#1B2D55',
+    900: '#18264A',
   },
 
   // Neutral/Gray Scale
@@ -125,13 +125,13 @@ export const TYPOGRAPHY = {
 
   // Font Sizes
   fontSize: {
-    xs: 12,
-    sm: 14,
-    base: 16,
-    lg: 18,
-    xl: 20,
-    '2xl': 24,
-    '3xl': 30,
+    xs: 11,
+    sm: 12,
+    base: 14,
+    lg: 14,
+    xl: 18,
+    '2xl': 21,
+    '3xl': 24,
     '4xl': 36,
     '5xl': 48,
   },
@@ -155,12 +155,12 @@ export const TYPOGRAPHY = {
 // ===== SPACING =====
 export const SPACING = {
   xs: 4,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  '2xl': 24,
-  '3xl': 32,
+  sm: 6,
+  md: 10,
+  lg: 14,
+  xl: 16,
+  '2xl': 20,
+  '3xl': 24,
   '4xl': 40,
   '5xl': 48,
   '6xl': 64,
@@ -325,17 +325,17 @@ export const LAYOUT = {
   screenPadding: SPACING.lg,
 
   // Header heights
-  headerHeight: 56,
-  tabBarHeight: 60,
+  headerHeight: 50,
+  tabBarHeight: 52,
 
   // Common dimensions
-  buttonHeight: 48,
-  inputHeight: 48,
+  buttonHeight: 44,
+  inputHeight: 44,
   avatarSize: {
     sm: 32,
-    md: 40,
-    lg: 56,
-    xl: 72,
+    md: 36,
+    lg: 48,
+    xl: 60,
   },
 
   // Breakpoints (for responsive design)

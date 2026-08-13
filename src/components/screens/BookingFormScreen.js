@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -18,29 +19,31 @@ import DatePicker from 'react-native-date-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import { API_URL } from '@env';
 
-// Default Theme (Falling back if imports fail)
+// Theme — white + navy, compact
 const THEME = {
-  PRIMARY: '#4F46E5',
-  SECONDARY: '#6366F1',
-  SUCCESS: '#10B981',
-  ERROR: '#EF4444',
-  INACTIVE: '#9CA3AF',
-  BG: '#F9FAFB',
+  PRIMARY: '#0B1F45',
+  PRIMARY_LIGHT: '#12295E',
+  SUCCESS: '#0F8A5F',
+  ERROR: '#DC2626',
+  ERROR_BG: '#FEF2F2',
+  INACTIVE: '#9AA1AC',
+  BG: '#F5F6F8',
   CARD_BG: '#FFFFFF',
   TEXT_MAIN: '#111827',
   TEXT_MUTED: '#6B7280',
-  BORDER: '#E5E7EB',
+  BORDER: '#E1E4EA',
+  FIELD_BG: '#F5F6F8',
+  ACCENT_BG: '#EEF1F8',
   SHADOW: {
-    shadowColor: '#000',
+    shadowColor: '#0B1F45',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowRadius: 6,
+    elevation: 1,
   },
 };
-
-const { API_URL } = process.env;
 
 const BOOKING_TYPES = [
   { label: 'Travel', value: 'Travel', icon: 'flight' },
@@ -137,7 +140,6 @@ export default function BookingFormScreen() {
       fd.append('itineraryComment', itineraryComment);
       fd.append('supportingComment', supportingComment);
 
-      // Dynamic field appending based on type
       const fields = {
         Travel: [
           'travelType',
@@ -209,7 +211,7 @@ export default function BookingFormScreen() {
 
   const SectionHeader = ({ title, icon }) => (
     <View style={styles.sectionHeader}>
-      <MaterialIcons name={icon} size={20} color={THEME.PRIMARY} />
+      <MaterialIcons name={icon} size={17} color={THEME.PRIMARY} />
       <Text style={styles.sectionTitle}>{title}</Text>
     </View>
   );
@@ -219,7 +221,8 @@ export default function BookingFormScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <StatusBar barStyle="dark-content" backgroundColor={THEME.CARD_BG} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -228,6 +231,7 @@ export default function BookingFormScreen() {
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
             <Text style={styles.title}>New Booking</Text>
@@ -276,7 +280,7 @@ export default function BookingFormScreen() {
               >
                 <MaterialIcons
                   name={type.icon}
-                  size={22}
+                  size={19}
                   color={bookingType === type.value ? '#fff' : THEME.INACTIVE}
                 />
                 <Text
@@ -420,6 +424,7 @@ export default function BookingFormScreen() {
             ]}
             onPress={submit}
             disabled={submitLoading}
+            activeOpacity={0.85}
           >
             {submitLoading ? (
               <ActivityIndicator color="#fff" />
@@ -428,7 +433,7 @@ export default function BookingFormScreen() {
                 <Text style={styles.submitButtonText}>Submit Request</Text>
                 <MaterialIcons
                   name="arrow-forward"
-                  size={20}
+                  size={18}
                   color="#fff"
                   style={{ marginLeft: 8 }}
                 />
@@ -436,7 +441,7 @@ export default function BookingFormScreen() {
             )}
           </TouchableOpacity>
 
-          <View style={{ height: 40 }} />
+          <View style={{ height: 20 }} />
         </ScrollView>
 
         <DatePicker
@@ -476,13 +481,13 @@ const Input = ({
     <View
       style={[
         styles.inputContainer,
-        multiline && { height: 100, alignItems: 'flex-start' },
+        multiline && { height: 90, alignItems: 'flex-start' },
       ]}
     >
       {icon && (
         <MaterialIcons
           name={icon}
-          size={20}
+          size={18}
           color={THEME.INACTIVE}
           style={{ marginRight: 8, marginTop: multiline ? 12 : 0 }}
         />
@@ -509,12 +514,16 @@ const DateField = ({ label, value, onPress }) => (
     <TouchableOpacity style={styles.inputContainer} onPress={onPress}>
       <MaterialIcons
         name="calendar-today"
-        size={20}
+        size={18}
         color={THEME.PRIMARY}
         style={{ marginRight: 10 }}
       />
       <Text
-        style={{ color: value ? THEME.TEXT_MAIN : THEME.INACTIVE, flex: 1 }}
+        style={{
+          color: value ? THEME.TEXT_MAIN : THEME.INACTIVE,
+          flex: 1,
+          fontSize: 14,
+        }}
       >
         {value ? value : 'Select Date'}
       </Text>
@@ -534,7 +543,7 @@ const FileSection = ({
     <View style={styles.fileSectionHeader}>
       <Text style={styles.fileSectionTitle}>{title}</Text>
       <TouchableOpacity style={styles.addButton} onPress={onAdd}>
-        <MaterialIcons name="add" size={20} color={THEME.PRIMARY} />
+        <MaterialIcons name="add" size={18} color={THEME.PRIMARY} />
         <Text style={styles.addButtonText}>Add</Text>
       </TouchableOpacity>
     </View>
@@ -545,7 +554,7 @@ const FileSection = ({
           <View key={i} style={styles.fileItem}>
             <MaterialIcons
               name="insert-drive-file"
-              size={20}
+              size={18}
               color={THEME.INACTIVE}
             />
             <Text numberOfLines={1} style={styles.fileName}>
@@ -555,7 +564,7 @@ const FileSection = ({
               onPress={() => onRemove(i)}
               style={styles.removeFileBtn}
             >
-              <MaterialIcons name="cancel" color={THEME.ERROR} size={20} />
+              <MaterialIcons name="cancel" color={THEME.ERROR} size={18} />
             </TouchableOpacity>
           </View>
         ))}
@@ -578,140 +587,145 @@ const FileSection = ({
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: THEME.BG },
   container: { flex: 1 },
-  scrollContent: { padding: 20 },
-  header: { marginBottom: 24 },
+  scrollContent: { padding: 14, paddingBottom: 12 },
+  header: { marginBottom: 14 },
   title: {
-    fontSize: 28,
+    fontSize: 18,
     fontWeight: '800',
-    color: THEME.TEXT_MAIN,
-    letterSpacing: -0.5,
+    color: THEME.PRIMARY,
+    letterSpacing: -0.3,
   },
-  subtitle: { fontSize: 15, color: THEME.TEXT_MUTED, marginTop: 4 },
+  subtitle: { fontSize: 13, color: THEME.TEXT_MUTED, marginTop: 3 },
 
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 12,
+    marginTop: 14,
+    marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '700',
-    color: THEME.TEXT_MAIN,
-    marginLeft: 8,
+    color: THEME.PRIMARY,
+    marginLeft: 7,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
 
   card: {
     backgroundColor: THEME.CARD_BG,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
-    ...THEME.SHADOW,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: THEME.BORDER,
   },
 
   row: { flexDirection: 'row', alignItems: 'center' },
 
-  inputWrap: { marginBottom: 16 },
-  labelRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-  label: { fontSize: 14, fontWeight: '600', color: THEME.TEXT_MAIN },
+  inputWrap: { marginBottom: 12 },
+  labelRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
+  label: { fontSize: 13, fontWeight: '600', color: THEME.TEXT_MAIN },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
+    backgroundColor: THEME.FIELD_BG,
+    borderRadius: 10,
     paddingHorizontal: 12,
-    height: 52,
+    height: 44,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: THEME.BORDER,
   },
-  input: { flex: 1, color: THEME.TEXT_MAIN, fontSize: 15, height: '100%' },
+  input: { flex: 1, color: THEME.TEXT_MAIN, fontSize: 14, height: '100%' },
 
   pickerWrapper: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    height: 52,
+    backgroundColor: THEME.FIELD_BG,
+    borderRadius: 10,
+    height: 44,
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: THEME.BORDER,
   },
   picker: { width: '100%', color: THEME.TEXT_MAIN },
 
   typeSelectorContainer: {
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 14,
+    backgroundColor: THEME.FIELD_BG,
+    borderRadius: 12,
     padding: 4,
-    marginBottom: 24,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: THEME.BORDER,
   },
   typeTab: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingVertical: 9,
+    borderRadius: 9,
   },
   typeTabActive: {
     backgroundColor: THEME.PRIMARY,
-    ...THEME.SHADOW,
   },
   typeTabText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '600',
     color: THEME.INACTIVE,
-    marginLeft: 6,
+    marginLeft: 5,
   },
   typeTabTextActive: { color: '#fff' },
 
   fileSectionCard: {
     backgroundColor: THEME.CARD_BG,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    ...THEME.SHADOW,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: THEME.BORDER,
   },
   fileSectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  fileSectionTitle: { fontSize: 15, fontWeight: '600', color: THEME.TEXT_MAIN },
+  fileSectionTitle: { fontSize: 14, fontWeight: '700', color: THEME.TEXT_MAIN },
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EEF2FF',
-    paddingHorizontal: 12,
+    backgroundColor: THEME.ACCENT_BG,
+    paddingHorizontal: 11,
     paddingVertical: 6,
     borderRadius: 8,
   },
   addButtonText: {
     color: THEME.PRIMARY,
     fontWeight: '700',
-    fontSize: 13,
+    fontSize: 12.5,
     marginLeft: 4,
   },
 
-  fileList: { marginBottom: 12 },
+  fileList: { marginBottom: 10 },
   fileItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    padding: 10,
-    borderRadius: 10,
-    marginBottom: 8,
+    backgroundColor: THEME.BG,
+    padding: 9,
+    borderRadius: 9,
+    marginBottom: 7,
     borderWidth: 1,
     borderColor: THEME.BORDER,
   },
-  fileName: { flex: 1, fontSize: 13, color: THEME.TEXT_MAIN, marginLeft: 8 },
+  fileName: { flex: 1, fontSize: 12.5, color: THEME.TEXT_MAIN, marginLeft: 7 },
   removeFileBtn: { padding: 2 },
 
   fileComment: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 10,
-    padding: 12,
-    minHeight: 60,
-    fontSize: 14,
+    backgroundColor: THEME.BG,
+    borderRadius: 9,
+    padding: 11,
+    minHeight: 54,
+    fontSize: 13,
     color: THEME.TEXT_MAIN,
     borderWidth: 1,
     borderColor: THEME.BORDER,
@@ -719,16 +733,13 @@ const styles = StyleSheet.create({
 
   submitButton: {
     backgroundColor: THEME.PRIMARY,
-    height: 58,
-    borderRadius: 16,
+    height: 48,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
-    ...THEME.SHADOW,
-    shadowColor: THEME.PRIMARY,
-    shadowOpacity: 0.3,
+    marginTop: 6,
   },
   submitButtonDisabled: { backgroundColor: THEME.INACTIVE },
-  submitButtonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  submitButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

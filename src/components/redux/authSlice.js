@@ -1,57 +1,60 @@
-import { API_URL } from '@env';
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-import axios from 'axios';
-console.log('API_URL:', API_URL);
-// ✅ Login user
+import api, {
+  clearAuthToken,
+  getAuthToken,
+  saveAuthToken,
+} from '../../services/api';
+
 export const loginUser = createAsyncThunk(
   'auth/loginUser',
   async ({ email, password }, { rejectWithValue }) => {
     try {
-      const { data } = await axios.post(
-        `${API_URL}/users/login`,
-        { email, password },
-        { withCredentials: true },
-      );
-
-      return data; // expects { user, role }
+      const { data } = await api.post('/users/login', { email, password });
+      await saveAuthToken(data.token);
+      return { user: data.data, role: data.data?.role };
     } catch (error) {
-      console.log('Login error:', error);
-      return rejectWithValue(error.response?.data?.message || 'Login failed!');
+      return rejectWithValue(error.response?.data?.message || 'Login failed');
     }
   },
 );
 
-// ✅ Fetch authenticated user
 export const fetchUser = createAsyncThunk(
   'auth/fetchUser',
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await axios.get(`${API_URL}/users/auth/me`, {
-        withCredentials: true,
-      });
-
-      if (!data) return rejectWithValue('User not found');
-
-      return {
-        user: data.data,
-        role: data.data?.role || null,
-      };
+      if (!(await getAuthToken())) return rejectWithValue('No saved session');
+      const { data } = await api.get('/users/auth/me');
+      return { user: data.data, role: data.role || data.data?.role || null };
     } catch (error) {
-      return rejectWithValue('User fetch failed');
+      if (error.response?.status === 401) await clearAuthToken();
+      return rejectWithValue(
+        error.response?.data?.message || 'User fetch failed',
+      );
+    }
+  },
+);
+
+export const completeMicrosoftLogin = createAsyncThunk(
+  'auth/completeMicrosoftLogin',
+  async (code, { dispatch, rejectWithValue }) => {
+    try {
+      const { data } = await api.post('/auth/azure/mobile/exchange', { code });
+      await saveAuthToken(data.token);
+      return await dispatch(fetchUser()).unwrap();
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || 'Microsoft login failed',
+      );
     }
   },
 );
 
 const authSlice = createSlice({
   name: 'auth',
-  initialState: {
-    data: null,
-    role: null,
-    loading: false,
-    error: null,
-  },
+  initialState: { data: null, role: null, loading: false, error: null },
   reducers: {
     logout: state => {
+      clearAuthToken();
       state.data = null;
       state.role = null;
       state.loading = false;
@@ -60,34 +63,37 @@ const authSlice = createSlice({
   },
   extraReducers: builder => {
     builder
-      .addCase(fetchUser.pending, state => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchUser.fulfilled, (state, action) => {
-        state.loading = false;
-        state.data = action.payload?.user || null;
-        state.role = action.payload?.role || null;
-      })
-      .addCase(fetchUser.rejected, state => {
-        state.loading = false;
-        state.data = null;
-        state.role = null;
-        state.error = 'User fetch failed';
-      })
-      .addCase(loginUser.pending, state => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(loginUser.fulfilled, (state, action) => {
-        state.loading = false;
-        state.data = action.payload.user;
-        state.role = action.payload.role;
-      })
-      .addCase(loginUser.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      });
+      .addMatcher(
+        action =>
+          action.type.startsWith('auth/') && action.type.endsWith('/pending'),
+        state => {
+          state.loading = true;
+          state.error = null;
+        },
+      )
+      .addMatcher(
+        action =>
+          action.type.startsWith('auth/') && action.type.endsWith('/fulfilled'),
+        (state, action) => {
+          state.loading = false;
+          if (action.payload?.user) {
+            state.data = action.payload.user;
+            state.role = action.payload.role;
+          }
+        },
+      )
+      .addMatcher(
+        action =>
+          action.type.startsWith('auth/') && action.type.endsWith('/rejected'),
+        (state, action) => {
+          state.loading = false;
+          state.error = action.payload || 'Authentication failed';
+          if (action.type.includes('fetchUser')) {
+            state.data = null;
+            state.role = null;
+          }
+        },
+      );
   },
 });
 

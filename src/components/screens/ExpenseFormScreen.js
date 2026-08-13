@@ -1,13 +1,16 @@
 import { pick, types } from '@react-native-documents/picker';
-import { Picker } from '@react-native-picker/picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
+  Modal,
   Platform,
+  Pressable,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -20,61 +23,170 @@ import Toast from 'react-native-toast-message';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { openFile } from '../utils/openFile';
 
-// replace or keep these constants as you already have them
 import { API_URL } from '@env';
-import {
-  CARD_SHADOW,
-  ERROR_COLOR,
-  INACTIVE_COLOR,
-  LIGHT_BG,
-  PRIMARY_COLOR,
-  WARNING_COLOR,
-} from '../theme/theme';
 import { CURRENCIES } from '../utils/constant';
 
-const formatDate = date => {
-  return date.toISOString().split('T')[0];
+/* ------------------ theme (white + navy) ------------------ */
+
+const NAVY = {
+  primary: '#0B1F45',
+  primaryLight: '#12295E',
+  bg: '#FFFFFF',
+  screenBg: '#F5F6F8',
+  surface: '#FFFFFF',
+  border: '#E1E4EA',
+  textPrimary: '#111827',
+  textSecondary: '#374151',
+  inactive: '#9AA1AC',
+  error: '#DC2626',
+  errorBg: '#FEF2F2',
+  onPrimary: '#FFFFFF',
 };
 
+const CARD_SHADOW = {
+  shadowColor: '#0B1F45',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.06,
+  shadowRadius: 6,
+  elevation: 1,
+};
+
+const formatDate = date => date.toISOString().split('T')[0];
+
 const StyledPicker = ({ value, onChange, placeholder, items, disabled }) => {
-  const showPlaceholder = !value;
+  const [visible, setVisible] = useState(false);
+  const [search, setSearch] = useState('');
+  const selected = items.find(item => item.value === value);
+  const filteredItems = items.filter(item =>
+    item.label.toLowerCase().includes(search.trim().toLowerCase()),
+  );
+
+  const close = () => {
+    setVisible(false);
+    setSearch('');
+  };
+
+  const select = itemValue => {
+    onChange(itemValue);
+    close();
+  };
 
   return (
-    <View
-      style={[
-        styles.pickerContainer,
-        disabled && { backgroundColor: '#F3F4F6' },
-      ]}
-    >
-      {/* Placeholder overlay */}
-      {showPlaceholder && (
-        <Text
-          style={{
-            position: 'absolute',
-            left: 14,
-            color: INACTIVE_COLOR,
-            fontSize: 16,
-            zIndex: 1,
-          }}
-        >
-          {placeholder}
-        </Text>
-      )}
-
-      <Picker
-        selectedValue={value}
-        onValueChange={onChange}
-        style={[styles.picker, { color: value ? '#111827' : 'transparent' }]}
-        enabled={!disabled}
-        dropdownIconColor={PRIMARY_COLOR}
+    <>
+      <TouchableOpacity
+        style={[
+          styles.pickerContainer,
+          value && styles.pickerSelected,
+          disabled && styles.pickerDisabled,
+        ]}
+        activeOpacity={0.75}
+        disabled={disabled}
+        onPress={() => setVisible(true)}
       >
-        {/* Hidden placeholder item */}
-        <Picker.Item label={placeholder} value="" />
-        {items.map(item => (
-          <Picker.Item key={item.value} label={item.label} value={item.value} />
-        ))}
-      </Picker>
-    </View>
+        <View style={styles.pickerValueRow}>
+          <MaterialIcons
+            name={value ? 'check-circle' : 'tune'}
+            size={18}
+            color={value ? NAVY.primary : NAVY.inactive}
+          />
+          <Text
+            style={[styles.pickerValue, !value && styles.pickerPlaceholder]}
+            numberOfLines={1}
+          >
+            {selected?.label || placeholder}
+          </Text>
+        </View>
+        <MaterialIcons name="keyboard-arrow-down" size={23} color={NAVY.primary} />
+      </TouchableOpacity>
+
+      <Modal
+        visible={visible}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={close}
+      >
+        <Pressable style={styles.selectorBackdrop} onPress={close}>
+          <Pressable style={styles.selectorSheet} onPress={() => {}}>
+            <View style={styles.selectorHandle} />
+            <View style={styles.selectorHeader}>
+              <View style={styles.selectorHeading}>
+                <Text style={styles.selectorTitle}>{placeholder}</Text>
+                <Text style={styles.selectorCount}>
+                  {items.length} {items.length === 1 ? 'option' : 'options'}
+                </Text>
+              </View>
+              <TouchableOpacity style={styles.selectorClose} onPress={close}>
+                <MaterialIcons name="close" size={21} color={NAVY.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {items.length > 7 && (
+              <View style={styles.selectorSearch}>
+                <MaterialIcons name="search" size={20} color={NAVY.inactive} />
+                <TextInput
+                  style={styles.selectorSearchInput}
+                  value={search}
+                  onChangeText={setSearch}
+                  placeholder="Search options"
+                  placeholderTextColor={NAVY.inactive}
+                  autoFocus={false}
+                />
+                {!!search && (
+                  <TouchableOpacity onPress={() => setSearch('')}>
+                    <MaterialIcons name="cancel" size={18} color={NAVY.inactive} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            <FlatList
+              data={filteredItems}
+              keyExtractor={item => String(item.value)}
+              style={styles.selectorList}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => {
+                const isSelected = item.value === value;
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.selectorOption,
+                      isSelected && styles.selectorOptionSelected,
+                    ]}
+                    onPress={() => select(item.value)}
+                  >
+                    <View style={styles.selectorOptionIcon}>
+                      <Text style={styles.selectorOptionInitial}>
+                        {item.label.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.selectorOptionText,
+                        isSelected && styles.selectorOptionTextSelected,
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {item.label}
+                    </Text>
+                    {isSelected && (
+                      <MaterialIcons name="check-circle" size={22} color={NAVY.primary} />
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={
+                <View style={styles.selectorEmpty}>
+                  <MaterialIcons name="search-off" size={30} color={NAVY.inactive} />
+                  <Text style={styles.selectorEmptyText}>No matching options</Text>
+                </View>
+              }
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   );
 };
 
@@ -90,7 +202,6 @@ const ExpenseFormScreen = () => {
   const [loading, setLoading] = useState(true);
   const [submitLoading, setSubmitLoading] = useState(false);
 
-  // master data
   const [managers, setManagers] = useState([]);
   const [financeUsers, setFinanceUsers] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -123,7 +234,6 @@ const ExpenseFormScreen = () => {
     ],
   });
 
-  // Linked documents (e.g., ticket file from booking)
   const [linkedDocuments, setLinkedDocuments] = useState([]);
 
   useEffect(() => {
@@ -165,7 +275,6 @@ const ExpenseFormScreen = () => {
     fetchAll();
   }, []);
 
-  // Prefill from booking if opened from booking details (route param)
   useEffect(() => {
     const bookingId = route?.params?.bookingId || route?.params?.id;
     if (!bookingId) return;
@@ -254,7 +363,6 @@ const ExpenseFormScreen = () => {
     prefillFromBooking();
   }, [route?.params?.bookingId, route?.params?.id]);
 
-  // recalc total
   useEffect(() => {
     let total = 0;
     formData.subExpenses.forEach(s => {
@@ -265,10 +373,8 @@ const ExpenseFormScreen = () => {
   }, [formData.subExpenses]);
 
   const handleChange = (name, value, index = null) => {
-    // index !== null => subExpense field
     if (index !== null) {
       const updated = [...formData.subExpenses];
-      // If changing category, reset expenseType and vendor
       if (name === 'expenseCategory') {
         updated[index].expenseCategory = value;
         updated[index].expenseType = '';
@@ -281,7 +387,6 @@ const ExpenseFormScreen = () => {
       }
       setFormData(p => ({ ...p, subExpenses: updated }));
     } else {
-      // top-level change
       if (name === 'isAdvance') {
         setFormData(p => ({
           ...p,
@@ -352,7 +457,6 @@ const ExpenseFormScreen = () => {
   };
 
   const validateBeforeSubmit = () => {
-    // each subExpense must have at least one file
     for (let i = 0; i < formData.subExpenses.length; i++) {
       const s = formData.subExpenses[i];
       if (!s.files || s.files.length === 0) {
@@ -363,12 +467,10 @@ const ExpenseFormScreen = () => {
         return false;
       }
     }
-    // other validations can be added here (dates, manager, finance, currency etc.)
     return true;
   };
 
   const handleSubmit = async isDraft => {
-    // guard
     if (!validateBeforeSubmit()) return;
 
     setSubmitLoading(true);
@@ -395,7 +497,6 @@ const ExpenseFormScreen = () => {
       formData.subExpenses.forEach((sub, i) => {
         payload.append(`documentDate-${i}`, sub.documentDate || '');
         payload.append(`expenseCategory-${i}`, sub.expenseCategory || '');
-        // here we send expenseType as GL account (web does gl_account for subtype in web code)
         payload.append(`expenseType-${i}`, sub.expenseType || '');
         payload.append(`gl_account-${i}`, sub.expenseType || '');
         payload.append(`vendor-${i}`, sub.vendor || '');
@@ -403,9 +504,7 @@ const ExpenseFormScreen = () => {
         payload.append(`description-${i}`, sub.description || '');
 
         sub.files.forEach(file => {
-          // On Android/IOS we pass object with uri,type,name
           let name = file.name || `file-${Date.now()}`;
-          // if name missing extension, attempt to fix
           if (!name.includes('.')) {
             if (file.type === 'application/pdf') name = name + '.pdf';
             else if (file.type?.startsWith('image/')) name = name + '.jpg';
@@ -457,29 +556,30 @@ const ExpenseFormScreen = () => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={PRIMARY_COLOR} />
+        <StatusBar barStyle="dark-content" backgroundColor={NAVY.screenBg} />
+        <ActivityIndicator size="large" color={NAVY.primary} />
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: NAVY.screenBg }}
+      edges={['top', 'bottom']}
+    >
+      <StatusBar barStyle="dark-content" backgroundColor={NAVY.bg} />
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ paddingBottom: 20 }}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <Text style={styles.title}>Create Expense</Text>
           <Text style={styles.subtitle}>Fill in the details below</Text>
           {formData.bookingId ? (
-            <View
-              style={{
-                marginTop: 6,
-                flexDirection: 'row',
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ color: PRIMARY_COLOR, fontSize: 13 }}>
-                Prefilled from booking
-              </Text>
+            <View style={styles.prefillRow}>
+              <Text style={styles.prefillText}>Prefilled from booking</Text>
               <TouchableOpacity
                 onPress={() =>
                   navigation.navigate('BookingDetails', {
@@ -488,14 +588,7 @@ const ExpenseFormScreen = () => {
                 }
                 style={{ marginLeft: 8 }}
               >
-                <Text
-                  style={{
-                    color: PRIMARY_COLOR,
-                    textDecorationLine: 'underline',
-                  }}
-                >
-                  View Booking
-                </Text>
+                <Text style={styles.prefillLink}>View Booking</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -509,7 +602,7 @@ const ExpenseFormScreen = () => {
             <TextInput
               style={styles.input}
               placeholder="Enter expense name"
-              placeholderTextColor={INACTIVE_COLOR}
+              placeholderTextColor={NAVY.inactive}
               value={formData.expenseName}
               onChangeText={text => handleChange('expenseName', text)}
             />
@@ -532,8 +625,10 @@ const ExpenseFormScreen = () => {
               >
                 <Text
                   style={{
-                    color: formData.periodFrom ? '#111827' : INACTIVE_COLOR,
-                    fontSize: 16,
+                    color: formData.periodFrom
+                      ? NAVY.textPrimary
+                      : NAVY.inactive,
+                    fontSize: 14,
                   }}
                 >
                   {formData.periodFrom || 'Select Start Date'}
@@ -557,8 +652,8 @@ const ExpenseFormScreen = () => {
               >
                 <Text
                   style={{
-                    color: formData.periodTo ? '#111827' : INACTIVE_COLOR,
-                    fontSize: 16,
+                    color: formData.periodTo ? NAVY.textPrimary : NAVY.inactive,
+                    fontSize: 14,
                   }}
                 >
                   {formData.periodTo || 'Select End Date'}
@@ -569,15 +664,11 @@ const ExpenseFormScreen = () => {
 
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Client</Text>
-
             <StyledPicker
               value={formData.client}
               onChange={val => handleChange('client', val)}
               placeholder="Select Client"
-              items={clients.map(c => ({
-                label: c.name,
-                value: c._id,
-              }))}
+              items={clients.map(c => ({ label: c.name, value: c._id }))}
             />
           </View>
 
@@ -586,13 +677,12 @@ const ExpenseFormScreen = () => {
             <TextInput
               style={styles.input}
               placeholder="Reference No."
-              placeholderTextColor={INACTIVE_COLOR}
+              placeholderTextColor={NAVY.inactive}
               value={formData.reference}
               onChangeText={val => handleChange('reference', val)}
             />
           </View>
 
-          {/* Linked documents (e.g., ticket from booking) */}
           {linkedDocuments.length > 0 && (
             <View style={styles.linkedDocsContainer}>
               <Text style={styles.inputLabel}>Linked Documents</Text>
@@ -602,7 +692,7 @@ const ExpenseFormScreen = () => {
                     onPress={() => openFile(doc)}
                     style={{ flex: 1 }}
                   >
-                    <Text style={styles.linkedDocName}>
+                    <Text style={styles.linkedDocName} numberOfLines={1}>
                       {doc.name || doc.url || 'Document'}
                     </Text>
                   </TouchableOpacity>
@@ -613,7 +703,7 @@ const ExpenseFormScreen = () => {
                       )
                     }
                   >
-                    <MaterialIcons name="close" size={20} color={ERROR_COLOR} />
+                    <MaterialIcons name="close" size={18} color={NAVY.error} />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -626,10 +716,7 @@ const ExpenseFormScreen = () => {
               value={formData.managerId}
               onChange={val => handleChange('managerId', val)}
               placeholder="Select Manager"
-              items={managers.map(m => ({
-                label: m.name,
-                value: m._id,
-              }))}
+              items={managers.map(m => ({ label: m.name, value: m._id }))}
             />
           </View>
 
@@ -639,10 +726,7 @@ const ExpenseFormScreen = () => {
               value={formData.financeId}
               onChange={val => handleChange('financeId', val)}
               placeholder="Select Finance"
-              items={financeUsers.map(f => ({
-                label: f.name,
-                value: f._id,
-              }))}
+              items={financeUsers.map(f => ({ label: f.name, value: f._id }))}
             />
           </View>
 
@@ -652,30 +736,22 @@ const ExpenseFormScreen = () => {
               value={formData.currency}
               onChange={val => handleChange('currency', val)}
               placeholder="Select Currency"
-              items={CURRENCIES.map(c => ({
-                label: c,
-                value: c,
-              }))}
+              items={CURRENCIES.map(c => ({ label: c, value: c }))}
             />
           </View>
 
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginBottom: 12,
-            }}
-          >
+          <View style={styles.advanceRow}>
             <TouchableOpacity
               onPress={() => handleChange('isAdvance', !formData.isAdvance)}
               style={{ marginRight: 8 }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <MaterialIcons
                 name={
                   formData.isAdvance ? 'check-box' : 'check-box-outline-blank'
                 }
-                size={24}
-                color={PRIMARY_COLOR}
+                size={22}
+                color={NAVY.primary}
               />
             </TouchableOpacity>
 
@@ -683,8 +759,12 @@ const ExpenseFormScreen = () => {
 
             {formData.isAdvance && (
               <TextInput
-                style={[styles.input, { marginLeft: 10, width: 140 }]}
+                style={[
+                  styles.input,
+                  { marginLeft: 10, width: 90, paddingVertical: 8 },
+                ]}
                 placeholder="0.00"
+                placeholderTextColor={NAVY.inactive}
                 keyboardType="numeric"
                 value={formData.advanceAmount}
                 onChangeText={val => handleChange('advanceAmount', val)}
@@ -698,7 +778,7 @@ const ExpenseFormScreen = () => {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Expense Items</Text>
             <TouchableOpacity style={styles.addButton} onPress={addSubExpense}>
-              <MaterialIcons name="add" size={20} color="#fff" />
+              <MaterialIcons name="add" size={18} color={NAVY.onPrimary} />
               <Text style={styles.addButtonText}>Add Item</Text>
             </TouchableOpacity>
           </View>
@@ -722,8 +802,8 @@ const ExpenseFormScreen = () => {
                     >
                       <MaterialIcons
                         name="delete"
-                        size={20}
-                        color={ERROR_COLOR}
+                        size={18}
+                        color={NAVY.error}
                       />
                     </TouchableOpacity>
                   )}
@@ -746,8 +826,10 @@ const ExpenseFormScreen = () => {
                   >
                     <Text
                       style={{
-                        color: sub.documentDate ? '#111827' : INACTIVE_COLOR,
-                        fontSize: 16,
+                        color: sub.documentDate
+                          ? NAVY.textPrimary
+                          : NAVY.inactive,
+                        fontSize: 14,
                       }}
                     >
                       {sub.documentDate || 'Select Expense Date'}
@@ -801,6 +883,7 @@ const ExpenseFormScreen = () => {
                   <TextInput
                     style={styles.input}
                     placeholder="0.00"
+                    placeholderTextColor={NAVY.inactive}
                     keyboardType="numeric"
                     value={sub.amount?.toString() || ''}
                     onChangeText={val => handleChange('amount', val, idx)}
@@ -812,7 +895,7 @@ const ExpenseFormScreen = () => {
                   <TextInput
                     style={styles.textarea}
                     placeholder="Optional description"
-                    placeholderTextColor={INACTIVE_COLOR}
+                    placeholderTextColor={NAVY.inactive}
                     value={sub.description}
                     onChangeText={val => handleChange('description', val, idx)}
                     multiline
@@ -825,7 +908,11 @@ const ExpenseFormScreen = () => {
                     style={styles.fileButton}
                     onPress={() => pickFiles(idx)}
                   >
-                    <MaterialIcons name="attach-file" size={20} color="#fff" />
+                    <MaterialIcons
+                      name="attach-file"
+                      size={18}
+                      color={NAVY.onPrimary}
+                    />
                     <Text style={styles.fileButtonText}>Add Files</Text>
                   </TouchableOpacity>
 
@@ -836,8 +923,8 @@ const ExpenseFormScreen = () => {
                           <View style={styles.fileInfo}>
                             <MaterialIcons
                               name="insert-drive-file"
-                              size={16}
-                              color={PRIMARY_COLOR}
+                              size={15}
+                              color={NAVY.primary}
                             />
                             <Text style={styles.fileName} numberOfLines={1}>
                               {file.name}
@@ -849,8 +936,8 @@ const ExpenseFormScreen = () => {
                           >
                             <MaterialIcons
                               name="close"
-                              size={16}
-                              color={ERROR_COLOR}
+                              size={15}
+                              color={NAVY.error}
                             />
                           </TouchableOpacity>
                         </View>
@@ -868,7 +955,7 @@ const ExpenseFormScreen = () => {
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Total Reimbursement</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, styles.totalInput]}
               value={totalReimbursement.toString()}
               editable={false}
             />
@@ -879,8 +966,10 @@ const ExpenseFormScreen = () => {
               style={[styles.actionButton, styles.draftButton]}
               onPress={() => handleSubmit(true)}
             >
-              <MaterialIcons name="save" size={20} color="#fff" />
-              <Text style={styles.actionButtonText}>Save Draft</Text>
+              <MaterialIcons name="save" size={18} color={NAVY.primary} />
+              <Text style={[styles.actionButtonText, { color: NAVY.primary }]}>
+                Save Draft
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -889,16 +978,17 @@ const ExpenseFormScreen = () => {
               disabled={submitLoading}
             >
               {submitLoading ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={NAVY.onPrimary} />
               ) : (
                 <>
-                  <MaterialIcons name="send" size={20} color="#fff" />
+                  <MaterialIcons name="send" size={18} color={NAVY.onPrimary} />
                   <Text style={styles.actionButtonText}>Submit Expense</Text>
                 </>
               )}
             </TouchableOpacity>
           </View>
         </View>
+
         <DatePicker
           modal
           open={openDatePicker}
@@ -913,11 +1003,9 @@ const ExpenseFormScreen = () => {
             if (activeDateField === 'documentDate') {
               handleChange('documentDate', formatted, activeDateIndex);
             }
-
             if (activeDateField === 'periodFrom') {
               handleChange('periodFrom', formatted);
             }
-
             if (activeDateField === 'periodTo') {
               handleChange('periodTo', formatted);
             }
@@ -941,194 +1029,324 @@ const ExpenseFormScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: LIGHT_BG,
+    backgroundColor: NAVY.screenBg,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: LIGHT_BG,
+    backgroundColor: NAVY.screenBg,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: INACTIVE_COLOR,
+    marginTop: 10,
+    fontSize: 14,
+    color: NAVY.inactive,
   },
   header: {
-    padding: 20,
-    paddingBottom: 16,
-    backgroundColor: '#fff',
+    padding: 14,
+    paddingBottom: 12,
+    backgroundColor: NAVY.bg,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: NAVY.border,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: PRIMARY_COLOR,
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '700',
+    color: NAVY.primary,
+    marginBottom: 3,
   },
   subtitle: {
-    fontSize: 16,
-    color: INACTIVE_COLOR,
+    fontSize: 13,
+    color: NAVY.inactive,
   },
+  prefillRow: {
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  prefillText: { color: NAVY.primary, fontSize: 12 },
+  prefillLink: {
+    color: NAVY.primary,
+    fontSize: 12,
+    textDecorationLine: 'underline',
+    fontWeight: '600',
+  },
+
   formSection: {
-    margin: 16,
-    marginBottom: 8,
+    margin: 14,
+    marginBottom: 6,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 16,
-  },
-  inputContainer: {
     marginBottom: 12,
   },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: NAVY.textPrimary,
+    marginBottom: 12,
+  },
+  inputContainer: {
+    marginBottom: 10,
+  },
   inputLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: 6,
+    fontSize: 13,
+    fontWeight: '600',
+    color: NAVY.textSecondary,
+    marginBottom: 5,
   },
   input: {
-    borderWidth: 1.5,
-    borderColor: '#D1D5DB',
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 16,
+    borderWidth: 1,
+    borderColor: NAVY.border,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    backgroundColor: NAVY.surface,
+    color: NAVY.textPrimary,
+  },
+  totalInput: {
+    fontWeight: '700',
+    color: NAVY.primary,
+    backgroundColor: '#F0F3FA',
   },
   linkedDocsContainer: {
-    marginTop: 8,
+    marginTop: 6,
     padding: 10,
-    backgroundColor: '#fff',
-    borderRadius: 8,
+    backgroundColor: NAVY.surface,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#EFEFEF',
+    borderColor: NAVY.border,
   },
   linkedDocRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   linkedDocName: {
-    color: PRIMARY_COLOR,
-    fontSize: 14,
+    color: NAVY.primary,
+    fontSize: 13,
+    flex: 1,
+    marginRight: 8,
   },
-
   textarea: {
-    borderWidth: 1.5,
-    borderColor: '#D1D5DB',
-    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: NAVY.border,
+    borderRadius: 10,
     padding: 12,
-    fontSize: 16,
-    backgroundColor: '#fff',
-    color: '#1F2937',
-    minHeight: 80,
+    fontSize: 14,
+    backgroundColor: NAVY.surface,
+    color: NAVY.textPrimary,
+    minHeight: 70,
     textAlignVertical: 'top',
-    ...CARD_SHADOW,
   },
   pickerContainer: {
-    borderWidth: 1.5,
-    borderColor: '#D1D5DB',
-    borderRadius: 12,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    height: 56,
+    borderWidth: 1,
+    borderColor: NAVY.border,
+    borderRadius: 10,
+    backgroundColor: NAVY.surface,
+    height: 48,
     paddingHorizontal: 12,
-    ...CARD_SHADOW,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  picker: {
-    color: '#111827',
-    height: 56,
-    width: '100%',
+  pickerSelected: {
+    borderColor: '#A9B8D5',
+    backgroundColor: '#FBFCFF',
   },
-  dropdownIcon: {
-    position: 'absolute',
-    right: 12,
-    pointerEvents: 'none',
+  pickerDisabled: {
+    backgroundColor: '#F3F4F6',
+    opacity: 0.65,
+  },
+  pickerValueRow: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  pickerValue: {
+    flex: 1,
+    marginLeft: 9,
+    color: NAVY.textPrimary,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  pickerPlaceholder: {
+    color: NAVY.inactive,
+    fontWeight: '400',
+  },
+  selectorBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(11, 31, 69, 0.52)',
+  },
+  selectorSheet: {
+    maxHeight: '72%',
+    minHeight: 280,
+    backgroundColor: NAVY.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 32 : 22,
+  },
+  selectorHandle: {
+    width: 42,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD2DE',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  selectorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  selectorHeading: { flex: 1 },
+  selectorTitle: { fontSize: 19, fontWeight: '700', color: NAVY.primary },
+  selectorCount: { marginTop: 3, fontSize: 12, color: NAVY.inactive },
+  selectorClose: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1F3F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectorSearch: {
+    height: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: NAVY.border,
+    borderRadius: 11,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    backgroundColor: '#F8F9FB',
+  },
+  selectorSearchInput: {
+    flex: 1,
+    height: '100%',
+    marginLeft: 8,
+    color: NAVY.textPrimary,
+    fontSize: 14,
+  },
+  selectorList: { flexGrow: 0 },
+  selectorOption: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 7,
+    borderWidth: 1,
+    borderColor: '#EDF0F4',
+    backgroundColor: '#FFFFFF',
+  },
+  selectorOptionSelected: {
+    borderColor: '#A9B8D5',
+    backgroundColor: '#EEF3FC',
+  },
+  selectorOptionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8EDF7',
+  },
+  selectorOptionInitial: { color: NAVY.primary, fontSize: 14, fontWeight: '700' },
+  selectorOptionText: {
+    flex: 1,
+    marginHorizontal: 11,
+    color: NAVY.textSecondary,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  selectorOptionTextSelected: { color: NAVY.primary, fontWeight: '700' },
+  selectorEmpty: { alignItems: 'center', paddingVertical: 30 },
+  selectorEmptyText: { marginTop: 8, color: NAVY.inactive, fontSize: 13 },
+  advanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
   },
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PRIMARY_COLOR,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    backgroundColor: NAVY.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
     ...CARD_SHADOW,
   },
   addButtonText: {
-    color: '#fff',
-    fontSize: 14,
+    color: NAVY.onPrimary,
+    fontSize: 13,
     fontWeight: '600',
-    marginLeft: 6,
+    marginLeft: 5,
   },
   subExpenseCard: {
-    backgroundColor: '#fff',
+    backgroundColor: NAVY.surface,
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    padding: 12,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: NAVY.border,
     ...CARD_SHADOW,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: '#F0F1F4',
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: PRIMARY_COLOR,
+    fontSize: 14,
+    fontWeight: '700',
+    color: NAVY.primary,
   },
   deleteButton: {
-    padding: 8,
+    padding: 6,
     borderRadius: 8,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: NAVY.errorBg,
   },
   fileButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: PRIMARY_COLOR,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    backgroundColor: NAVY.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderRadius: 10,
-    ...CARD_SHADOW,
   },
   fileButtonText: {
-    color: '#fff',
-    fontSize: 16,
+    color: NAVY.onPrimary,
+    fontSize: 14,
     fontWeight: '600',
-    marginLeft: 8,
+    marginLeft: 6,
   },
   fileListContainer: {
-    marginTop: 12,
+    marginTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    paddingTop: 12,
+    borderTopColor: '#F0F1F4',
+    paddingTop: 10,
   },
   fileItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    padding: 12,
+    backgroundColor: NAVY.screenBg,
+    padding: 10,
     borderRadius: 8,
-    marginBottom: 8,
+    marginBottom: 6,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: NAVY.border,
   },
   fileInfo: {
     flexDirection: 'row',
@@ -1137,40 +1355,40 @@ const styles = StyleSheet.create({
   },
   fileName: {
     flex: 1,
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#374151',
+    marginLeft: 6,
+    fontSize: 13,
+    color: NAVY.textSecondary,
   },
   fileDeleteButton: {
     padding: 4,
     borderRadius: 4,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: NAVY.errorBg,
   },
   actionSection: {
-    padding: 16,
-    paddingTop: 8,
-    gap: 12,
+    padding: 10,
+    paddingTop: 6,
+    gap: 10,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
+    paddingVertical: 13,
     borderRadius: 12,
-    ...CARD_SHADOW,
-    marginBottom: 8,
   },
   actionButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    color: NAVY.onPrimary,
+    fontSize: 14,
+    fontWeight: '700',
     marginLeft: 8,
   },
   draftButton: {
-    backgroundColor: INACTIVE_COLOR,
+    backgroundColor: NAVY.surface,
+    borderWidth: 1.5,
+    borderColor: NAVY.primary,
   },
   submitButton: {
-    backgroundColor: WARNING_COLOR,
+    backgroundColor: NAVY.primary,
   },
 });
 

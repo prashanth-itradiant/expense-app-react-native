@@ -3,8 +3,9 @@ import axios from 'axios';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -43,6 +44,7 @@ const ProfileScreen = () => {
 
   const [loading, setLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [showImagePicker, setShowImagePicker] = useState(false);
 
   // Update state when Redux user changes
   useEffect(() => {
@@ -67,51 +69,33 @@ const ProfileScreen = () => {
   };
 
   // Select profile image
-  const handleFileChange = () => {
-    Alert.alert(
-      'Select Option',
-      'Choose a profile picture',
-      [
-        {
-          text: 'Camera',
-          onPress: () => {
-            launchCamera({ mediaType: 'photo', quality: 0.7 }, response => {
-              if (
-                !response.didCancel &&
-                !response.errorCode &&
-                response.assets?.length > 0
-              ) {
-                const file = response.assets[0];
-                setSelectedFile(file);
-              }
-            });
-          },
-        },
-        {
-          text: 'Gallery',
-          onPress: () => {
-            launchImageLibrary(
-              { mediaType: 'photo', quality: 0.7 },
-              response => {
-                if (
-                  !response.didCancel &&
-                  !response.errorCode &&
-                  response.assets?.length > 0
-                ) {
-                  const file = response.assets[0];
-                  setSelectedFile(file);
-                }
-              },
-            );
-          },
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-      ],
-      { cancelable: true },
-    );
+  const handlePickerResponse = response => {
+    if (response.errorCode) {
+      Toast.show({
+        type: 'error',
+        text1: 'Could not select photo',
+        text2: response.errorMessage || 'Please try again.',
+      });
+      return;
+    }
+    if (!response.didCancel && response.assets?.[0]) {
+      setSelectedFile(response.assets[0]);
+      Toast.show({
+        type: 'success',
+        text1: 'Photo selected',
+        text2: 'Tap Update Profile to save your new photo.',
+      });
+    }
+  };
+
+  const pickImage = source => {
+    setShowImagePicker(false);
+    const options = { mediaType: 'photo', quality: 0.8, selectionLimit: 1 };
+    if (source === 'camera') {
+      launchCamera(options, handlePickerResponse);
+    } else {
+      launchImageLibrary(options, handlePickerResponse);
+    }
   };
 
   // Submit form
@@ -131,7 +115,7 @@ const ProfileScreen = () => {
         });
       }
 
-      const response = await axios.put(
+      await axios.put(
         `${API_URL}/users/update-profile`,
         formDataImage,
         {
@@ -165,7 +149,7 @@ const ProfileScreen = () => {
       {/* Profile Image Section */}
       <View style={styles.profileSection}>
         <TouchableOpacity
-          onPress={handleFileChange}
+          onPress={() => setShowImagePicker(true)}
           style={styles.imageContainer}
           activeOpacity={0.8}
         >
@@ -313,6 +297,65 @@ const ProfileScreen = () => {
         </TouchableOpacity>
       </View>
 
+      <Modal
+        visible={showImagePicker}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={() => setShowImagePicker(false)}
+      >
+        <Pressable
+          style={styles.pickerBackdrop}
+          onPress={() => setShowImagePicker(false)}
+        >
+          <Pressable style={styles.pickerSheet} onPress={() => {}}>
+            <View style={styles.pickerHandle} />
+            <View style={styles.pickerHeader}>
+              <View>
+                <Text style={styles.pickerTitle}>Update profile photo</Text>
+                <Text style={styles.pickerSubtitle}>
+                  Choose where you want to get your photo
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowImagePicker(false)}
+              >
+                <MaterialIcons name="close" size={21} color="#475569" />
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={styles.pickerOption}
+              activeOpacity={0.75}
+              onPress={() => pickImage('camera')}
+            >
+              <View style={[styles.optionIcon, styles.cameraIcon]}>
+                <MaterialIcons name="photo-camera" size={25} color="#3156A3" />
+              </View>
+              <View style={styles.optionCopy}>
+                <Text style={styles.optionTitle}>Take a photo</Text>
+                <Text style={styles.optionSubtitle}>Use your device camera</Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={24} color="#94A3B8" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.pickerOption}
+              activeOpacity={0.75}
+              onPress={() => pickImage('gallery')}
+            >
+              <View style={[styles.optionIcon, styles.galleryIcon]}>
+                <MaterialIcons name="photo-library" size={25} color="#8B4A20" />
+              </View>
+              <View style={styles.optionCopy}>
+                <Text style={styles.optionTitle}>Choose from gallery</Text>
+                <Text style={styles.optionSubtitle}>Select an existing photo</Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={24} color="#94A3B8" />
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <Toast />
     </ScrollView>
   );
@@ -326,13 +369,13 @@ const styles = StyleSheet.create({
     backgroundColor: LIGHT_BG,
   },
   contentContainer: {
-    padding: 20,
+    padding: 14,
     paddingBottom: 40,
   },
   profileSection: {
     alignItems: 'center',
-    marginBottom: 32,
-    paddingVertical: 20,
+    marginBottom: 22,
+    paddingVertical: 14,
   },
   imageContainer: {
     marginBottom: 12,
@@ -341,9 +384,9 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   profileImage: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     borderWidth: 4,
     borderColor: '#fff',
     ...CARD_SHADOW,
@@ -353,7 +396,7 @@ const styles = StyleSheet.create({
     bottom: 8,
     right: 8,
     backgroundColor: PRIMARY_COLOR,
-    borderRadius: 20,
+    borderRadius: 14,
     width: 40,
     height: 40,
     justifyContent: 'center',
@@ -363,9 +406,9 @@ const styles = StyleSheet.create({
     ...CARD_SHADOW,
   },
   placeholder: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     backgroundColor: '#fff',
     borderWidth: 2,
     borderColor: '#E5E7EB',
@@ -386,10 +429,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   formSection: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: 14,
   },
   inputLabel: {
     fontSize: 14,
@@ -402,7 +445,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#D1D5DB',
     borderRadius: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 14,
     fontSize: 16,
     color: '#1F2937',
@@ -426,7 +469,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#E5E7EB',
     borderRadius: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 14,
     ...CARD_SHADOW,
   },
@@ -442,8 +485,8 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: PRIMARY_COLOR,
     borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
     ...CARD_SHADOW,
@@ -461,4 +504,65 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
+  pickerBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(15, 23, 42, 0.52)',
+  },
+  pickerSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 30,
+  },
+  pickerHandle: {
+    width: 42,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    alignSelf: 'center',
+    marginBottom: 18,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+  pickerTitle: { fontSize: 20, fontWeight: '700', color: '#172033' },
+  pickerSubtitle: { fontSize: 13, color: '#64748B', marginTop: 4 },
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  pickerOption: {
+    minHeight: 76,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    marginBottom: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FAFCFF',
+  },
+  optionIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraIcon: { backgroundColor: '#E8F0FF' },
+  galleryIcon: { backgroundColor: '#FFF0E6' },
+  optionCopy: { flex: 1, marginLeft: 13 },
+  optionTitle: { fontSize: 15, fontWeight: '700', color: '#1E293B' },
+  optionSubtitle: { fontSize: 12, color: '#64748B', marginTop: 3 },
 });
