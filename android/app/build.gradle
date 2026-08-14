@@ -77,7 +77,10 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.expenses"
+    namespace "com.itrxpens"
+
+   
+
     defaultConfig {
         applicationId "com.itrxpens"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -98,6 +101,7 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
+            signingConfig signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }

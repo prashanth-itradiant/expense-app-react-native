@@ -1,4 +1,4 @@
-package com.expenses
+package com.itrxpens
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

@@ -1,4 +1,4 @@
-package com.expenses
+package com.itrxpens
 
 import android.app.Application
 import com.facebook.react.PackageList
