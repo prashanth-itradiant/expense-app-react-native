@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { Provider, useDispatch, useSelector } from 'react-redux';
@@ -27,7 +28,43 @@ import LoginScreen from './src/features/auth/LoginScreen';
 const Stack = createNativeStackNavigator();
 const queryClient = new QueryClient();
 
+function AppToast({ type, text1, text2, hide }: any) {
+  const isError = type === 'error';
+  const color = isError ? '#B42318' : '#087443';
+  const backgroundColor = isError ? '#FFF1F0' : '#ECFDF3';
+  const icon = isError ? 'error-outline' : 'check-circle-outline';
+
+  return (
+    <View style={[styles.appToast, { borderLeftColor: color }]}>
+      <View style={[styles.appToastIcon, { backgroundColor }]}>
+        <MaterialIcons name={icon} size={22} color={color} />
+      </View>
+      <View style={styles.appToastContent}>
+        <Text style={styles.appToastTitle} numberOfLines={2}>
+          {text1}
+        </Text>
+        {!!text2 && (
+          <Text style={styles.appToastMessage} numberOfLines={3}>
+            {text2}
+          </Text>
+        )}
+      </View>
+      <TouchableOpacity
+        accessibilityLabel="Close notification"
+        hitSlop={10}
+        onPress={hide}
+        style={styles.appToastClose}
+      >
+        <MaterialIcons name="close" size={20} color="#64748B" />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 const toastConfig = {
+  success: props => <AppToast {...props} type="success" />,
+  error: props => <AppToast {...props} type="error" />,
+  info: props => <AppToast {...props} type="info" />,
   logoutConfirm: ({ props }: any) => (
     <View style={styles.logoutToast}>
       <View style={styles.logoutToastIcon}>
@@ -86,6 +123,34 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
+  appToast: {
+    width: '92%',
+    minHeight: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    elevation: 7,
+  },
+  appToastIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  appToastContent: { flex: 1, paddingRight: 8 },
+  appToastTitle: { color: '#172033', fontSize: 15, fontWeight: '700' },
+  appToastMessage: { color: '#64748B', fontSize: 12, marginTop: 3 },
+  appToastClose: { padding: 4 },
   logoutToastIcon: {
     width: 38,
     height: 38,
@@ -190,6 +255,13 @@ function AppNavigator() {
         await dispatch(fetchUser()).unwrap(); // ✅ unwrap fixes TS type issue
       } catch (err) {
         console.error('Fetch user failed', err);
+        if (err === 'OFFLINE') {
+          Toast.show({
+            type: 'error',
+            text1: 'You are offline',
+            text2: 'Unable to get data. Check your internet connection.',
+          });
+        }
       } finally {
         setUserFetched(true);
       }
@@ -219,7 +291,7 @@ export default function App() {
         <SafeAreaProvider>
           <StatusBar barStyle="light-content" backgroundColor="#18264A" />
           <AppNavigator />
-          <Toast config={toastConfig} />
+          <Toast config={toastConfig} visibilityTime={3000} />
         </SafeAreaProvider>
       </QueryClientProvider>
     </Provider>

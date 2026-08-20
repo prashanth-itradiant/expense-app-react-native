@@ -2,7 +2,7 @@ import { pick, types } from '@react-native-documents/picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -96,7 +96,11 @@ const StyledPicker = ({ value, onChange, placeholder, items, disabled }) => {
             {selected?.label || placeholder}
           </Text>
         </View>
-        <MaterialIcons name="keyboard-arrow-down" size={23} color={NAVY.primary} />
+        <MaterialIcons
+          name="keyboard-arrow-down"
+          size={23}
+          color={NAVY.primary}
+        />
       </TouchableOpacity>
 
       <Modal
@@ -117,7 +121,11 @@ const StyledPicker = ({ value, onChange, placeholder, items, disabled }) => {
                 </Text>
               </View>
               <TouchableOpacity style={styles.selectorClose} onPress={close}>
-                <MaterialIcons name="close" size={21} color={NAVY.textSecondary} />
+                <MaterialIcons
+                  name="close"
+                  size={21}
+                  color={NAVY.textSecondary}
+                />
               </TouchableOpacity>
             </View>
 
@@ -134,7 +142,11 @@ const StyledPicker = ({ value, onChange, placeholder, items, disabled }) => {
                 />
                 {!!search && (
                   <TouchableOpacity onPress={() => setSearch('')}>
-                    <MaterialIcons name="cancel" size={18} color={NAVY.inactive} />
+                    <MaterialIcons
+                      name="cancel"
+                      size={18}
+                      color={NAVY.inactive}
+                    />
                   </TouchableOpacity>
                 )}
               </View>
@@ -171,15 +183,25 @@ const StyledPicker = ({ value, onChange, placeholder, items, disabled }) => {
                       {item.label}
                     </Text>
                     {isSelected && (
-                      <MaterialIcons name="check-circle" size={22} color={NAVY.primary} />
+                      <MaterialIcons
+                        name="check-circle"
+                        size={22}
+                        color={NAVY.primary}
+                      />
                     )}
                   </TouchableOpacity>
                 );
               }}
               ListEmptyComponent={
                 <View style={styles.selectorEmpty}>
-                  <MaterialIcons name="search-off" size={30} color={NAVY.inactive} />
-                  <Text style={styles.selectorEmptyText}>No matching options</Text>
+                  <MaterialIcons
+                    name="search-off"
+                    size={30}
+                    color={NAVY.inactive}
+                  />
+                  <Text style={styles.selectorEmptyText}>
+                    No matching options
+                  </Text>
                 </View>
               }
             />
@@ -235,6 +257,8 @@ const ExpenseFormScreen = () => {
   });
 
   const [linkedDocuments, setLinkedDocuments] = useState([]);
+  const scrollViewRef = useRef(null);
+  const fieldLayouts = useRef({});
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -456,14 +480,53 @@ const ExpenseFormScreen = () => {
     setFormData(p => ({ ...p, subExpenses: updated }));
   };
 
+  const showValidationError = (field, message) => {
+    Toast.show({ type: 'error', text1: message });
+    requestAnimationFrame(() => {
+      const y = fieldLayouts.current[field];
+      if (typeof y === 'number') {
+        scrollViewRef.current?.scrollTo({
+          y: Math.max(y - 24, 0),
+          animated: true,
+        });
+      }
+    });
+  };
+
   const validateBeforeSubmit = () => {
+    const requiredFields = [
+      ['expenseName', formData.expenseName, 'Enter an expense name'],
+      ['managerId', formData.managerId, 'Select a manager'],
+      ['financeId', formData.financeId, 'Select a finance approver'],
+      ['currency', formData.currency, 'Select a currency'],
+    ];
+    const missingField = requiredFields.find(([, value]) => !value);
+    if (missingField) {
+      showValidationError(missingField[0], missingField[2]);
+      return false;
+    }
+
     for (let i = 0; i < formData.subExpenses.length; i++) {
       const s = formData.subExpenses[i];
+      const requiredItemFields = [
+        ['expenseCategory', s.expenseCategory, 'Select a category'],
+        ['expenseType', s.expenseType, 'Select an expense type'],
+        ['vendor', s.vendor, 'Select a vendor'],
+        ['amount', s.amount, 'Enter an amount'],
+      ];
+      const missingItemField = requiredItemFields.find(([, value]) => !value);
+      if (missingItemField) {
+        showValidationError(
+          `item-${i}-${missingItemField[0]}`,
+          `${missingItemField[2]} for item ${i + 1}`,
+        );
+        return false;
+      }
       if (!s.files || s.files.length === 0) {
-        Toast.show({
-          type: 'error',
-          text1: `Attach at least one file for item ${i + 1}`,
-        });
+        showValidationError(
+          `item-${i}-files`,
+          `Attach a file for item ${i + 1}`,
+        );
         return false;
       }
     }
@@ -532,7 +595,9 @@ const ExpenseFormScreen = () => {
       if (res?.data?.success) {
         Toast.show({
           type: 'success',
-          text1: res.data.message || 'Expense submitted successfully!',
+          text1: isDraft
+            ? 'Expense saved as draft'
+            : 'Expense submitted successfully',
         });
         queryClient.invalidateQueries({ queryKey: ['expenses'] });
         navigation.navigate('ExpensesList');
@@ -570,6 +635,7 @@ const ExpenseFormScreen = () => {
     >
       <StatusBar barStyle="dark-content" backgroundColor={NAVY.bg} />
       <ScrollView
+        ref={scrollViewRef}
         style={styles.container}
         contentContainerStyle={{ paddingBottom: 20 }}
         showsVerticalScrollIndicator={false}
@@ -597,7 +663,12 @@ const ExpenseFormScreen = () => {
         <View style={styles.formSection}>
           <Text style={styles.sectionTitle}>Basic Information</Text>
 
-          <View style={styles.inputContainer}>
+          <View
+            style={styles.inputContainer}
+            onLayout={event => {
+              fieldLayouts.current.expenseName = event.nativeEvent.layout.y;
+            }}
+          >
             <Text style={styles.inputLabel}>Expense Name *</Text>
             <TextInput
               style={styles.input}
@@ -662,7 +733,12 @@ const ExpenseFormScreen = () => {
             </View>
           </View>
 
-          <View style={styles.inputContainer}>
+          <View
+            style={styles.inputContainer}
+            onLayout={event => {
+              fieldLayouts.current.managerId = event.nativeEvent.layout.y;
+            }}
+          >
             <Text style={styles.inputLabel}>Client</Text>
             <StyledPicker
               value={formData.client}
@@ -672,7 +748,12 @@ const ExpenseFormScreen = () => {
             />
           </View>
 
-          <View style={styles.inputContainer}>
+          <View
+            style={styles.inputContainer}
+            onLayout={event => {
+              fieldLayouts.current.financeId = event.nativeEvent.layout.y;
+            }}
+          >
             <Text style={styles.inputLabel}>Reference</Text>
             <TextInput
               style={styles.input}
@@ -710,7 +791,12 @@ const ExpenseFormScreen = () => {
             </View>
           )}
 
-          <View style={styles.inputContainer}>
+          <View
+            style={styles.inputContainer}
+            onLayout={event => {
+              fieldLayouts.current.currency = event.nativeEvent.layout.y;
+            }}
+          >
             <Text style={styles.inputLabel}>Manager *</Text>
             <StyledPicker
               value={formData.managerId}
@@ -809,7 +895,13 @@ const ExpenseFormScreen = () => {
                   )}
                 </View>
 
-                <View style={styles.inputContainer}>
+                <View
+                  style={styles.inputContainer}
+                  onLayout={event => {
+                    fieldLayouts.current[`item-${idx}-expenseCategory`] =
+                      event.nativeEvent.layout.y;
+                  }}
+                >
                   <Text style={styles.inputLabel}>Expense Date</Text>
                   <TouchableOpacity
                     style={styles.input}
@@ -837,7 +929,13 @@ const ExpenseFormScreen = () => {
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.inputContainer}>
+                <View
+                  style={styles.inputContainer}
+                  onLayout={event => {
+                    fieldLayouts.current[`item-${idx}-expenseType`] =
+                      event.nativeEvent.layout.y;
+                  }}
+                >
                   <Text style={styles.inputLabel}>Expense Category *</Text>
                   <StyledPicker
                     value={sub.expenseCategory}
@@ -850,7 +948,13 @@ const ExpenseFormScreen = () => {
                   />
                 </View>
 
-                <View style={styles.inputContainer}>
+                <View
+                  style={styles.inputContainer}
+                  onLayout={event => {
+                    fieldLayouts.current[`item-${idx}-vendor`] =
+                      event.nativeEvent.layout.y;
+                  }}
+                >
                   <Text style={styles.inputLabel}>Expense Type *</Text>
                   <StyledPicker
                     value={sub.expenseType}
@@ -864,7 +968,13 @@ const ExpenseFormScreen = () => {
                   />
                 </View>
 
-                <View style={styles.inputContainer}>
+                <View
+                  style={styles.inputContainer}
+                  onLayout={event => {
+                    fieldLayouts.current[`item-${idx}-amount`] =
+                      event.nativeEvent.layout.y;
+                  }}
+                >
                   <Text style={styles.inputLabel}>Vendor *</Text>
                   <StyledPicker
                     value={sub.vendor}
@@ -878,7 +988,13 @@ const ExpenseFormScreen = () => {
                   />
                 </View>
 
-                <View style={styles.inputContainer}>
+                <View
+                  style={styles.inputContainer}
+                  onLayout={event => {
+                    fieldLayouts.current[`item-${idx}-files`] =
+                      event.nativeEvent.layout.y;
+                  }}
+                >
                   <Text style={styles.inputLabel}>Amount *</Text>
                   <TextInput
                     style={styles.input}
@@ -1019,8 +1135,6 @@ const ExpenseFormScreen = () => {
             setActiveDateField(null);
           }}
         />
-
-        <Toast />
       </ScrollView>
     </SafeAreaView>
   );
@@ -1257,7 +1371,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#E8EDF7',
   },
-  selectorOptionInitial: { color: NAVY.primary, fontSize: 14, fontWeight: '700' },
+  selectorOptionInitial: {
+    color: NAVY.primary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
   selectorOptionText: {
     flex: 1,
     marginHorizontal: 11,

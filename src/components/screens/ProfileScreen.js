@@ -108,23 +108,25 @@ const ProfileScreen = () => {
       });
 
       if (selectedFile) {
+        const fileName =
+          selectedFile.fileName ||
+          selectedFile.name ||
+          `profile-${Date.now()}.${
+            selectedFile.type === 'image/png' ? 'png' : 'jpg'
+          }`;
         formDataImage.append('profilePic', {
           uri: selectedFile.uri,
-          type: selectedFile.type,
-          name: selectedFile.fileName,
+          type: selectedFile.type || 'image/jpeg',
+          name: fileName,
         });
       }
 
-      await axios.put(
-        `${API_URL}/users/update-profile`,
-        formDataImage,
-        {
-          headers: { 'Content-Type': 'multipart/form-data' },
-          withCredentials: true,
-        },
-      );
+      await axios.put(`${API_URL}/users/update-profile`, formDataImage, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        withCredentials: true,
+      });
 
-      dispatch(fetchUser());
+      await dispatch(fetchUser()).unwrap();
 
       Toast.show({
         type: 'success',
@@ -158,8 +160,9 @@ const ProfileScreen = () => {
               <Image
                 source={{
                   uri:
-                    selectedFile?.uri ||
-                    `${VITE_IMAGE_URL}/profilePics/${formData.profilePic}`,
+                    selectedFile?.uri || formData.profilePic.startsWith('http')
+                      ? formData.profilePic
+                      : `${VITE_IMAGE_URL}/profilePics/${formData.profilePic}`,
                 }}
                 style={styles.profileImage}
               />
@@ -334,7 +337,9 @@ const ProfileScreen = () => {
               </View>
               <View style={styles.optionCopy}>
                 <Text style={styles.optionTitle}>Take a photo</Text>
-                <Text style={styles.optionSubtitle}>Use your device camera</Text>
+                <Text style={styles.optionSubtitle}>
+                  Use your device camera
+                </Text>
               </View>
               <MaterialIcons name="chevron-right" size={24} color="#94A3B8" />
             </TouchableOpacity>
@@ -348,7 +353,9 @@ const ProfileScreen = () => {
               </View>
               <View style={styles.optionCopy}>
                 <Text style={styles.optionTitle}>Choose from gallery</Text>
-                <Text style={styles.optionSubtitle}>Select an existing photo</Text>
+                <Text style={styles.optionSubtitle}>
+                  Select an existing photo
+                </Text>
               </View>
               <MaterialIcons name="chevron-right" size={24} color="#94A3B8" />
             </TouchableOpacity>

@@ -10,27 +10,36 @@ export default function AppHeader({ title, showBack = false }) {
   const user = useSelector(s => s.auth.data);
   const insets = useSafeAreaInsets();
   const unread = 0;
+  const openDashboard = () =>
+    navigation.getParent()?.navigate('Dashboard', { screen: 'Dashboard' });
   return (
     <View style={[s.bar, { height: 52 + insets.top, paddingTop: insets.top }]}>
       <TouchableOpacity
         style={s.navButton}
+        hitSlop={6}
         onPress={() =>
           showBack ? navigation.goBack() : navigation.toggleDrawer()
         }
       >
         <MaterialIcons
           name={showBack ? 'arrow-back' : 'menu'}
-          size={20}
+          size={28}
           color="#243E78"
         />
       </TouchableOpacity>
-      <Image source={logo} style={s.logo} resizeMode="contain" />
-      <View style={s.titleWrap}>
-        <Text style={s.product}>Expense Portal</Text>
-        <Text style={s.title} numberOfLines={1}>
-          {title}
-        </Text>
-      </View>
+      <TouchableOpacity
+        style={s.brandButton}
+        onPress={openDashboard}
+        accessibilityLabel="Open dashboard"
+      >
+        <Image source={logo} style={s.logo} resizeMode="contain" />
+        <View style={s.titleWrap}>
+          <Text style={s.product}>Expense Portal</Text>
+          <Text style={s.title} numberOfLines={1}>
+            {title}
+          </Text>
+        </View>
+      </TouchableOpacity>
       <TouchableOpacity
         style={s.action}
         onPress={() => navigation.getParent()?.navigate('Notifications')}
@@ -58,14 +67,15 @@ const s = StyleSheet.create({
     paddingHorizontal: 8,
   },
   navButton: {
-    width: 36,
-    height: 36,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 10,
   },
   logo: { width: 28, height: 28, borderRadius: 7, marginLeft: 1 },
-  titleWrap: { flex: 1, marginLeft: 8 },
+  brandButton: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  titleWrap: { marginLeft: 8 },
   product: { fontSize: 9, color: '#929BAC', lineHeight: 11 },
   title: { fontSize: 13, fontWeight: '700', color: '#182033', lineHeight: 17 },
   action: {

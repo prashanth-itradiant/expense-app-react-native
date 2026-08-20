@@ -111,7 +111,7 @@ const direct = (component, title) => props =>
 const icon =
   name =>
   ({ color, size }) =>
-    <MaterialIcons name={name} size={Math.min(size, 19)} color={color} />;
+    <MaterialIcons name={name} size={Math.max(size, 24)} color={color} />;
 export default function AppDrawer() {
   const insets = useSafeAreaInsets();
   const role = useSelector(s => s.auth.role) || 'employee';
@@ -133,7 +133,7 @@ export default function AppDrawer() {
       borderRadius: 8,
       marginHorizontal: 4,
       marginVertical: 2,
-      height:45,
+      height: 52,
       paddingVertical: 0,
       paddingHorizontal: 12,
     },

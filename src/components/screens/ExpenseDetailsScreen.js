@@ -8,20 +8,43 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { PRIMARY_COLOR } from '../theme/theme';
 import { openFile } from '../utils/openFile';
+
+/* ---------------- theme (white + navy) ---------------- */
+
+const NAVY = {
+  primary: '#0B1F45',
+  primaryLight: '#16326B',
+  bg: '#F5F6F8',
+  surface: '#FFFFFF',
+  border: '#E1E4EA',
+  textPrimary: '#111827',
+  textSecondary: '#6B7280',
+  inactive: '#9AA1AC',
+  success: '#0F8A5F',
+  successBg: '#DCFCE7',
+  error: '#DC2626',
+  errorBg: '#FEF2F2',
+  onPrimary: '#FFFFFF',
+};
+
+const formatDate = d => (d ? new Date(d).toLocaleDateString() : 'N/A');
 
 export default function ExpenseDetailsScreen() {
   const route = useRoute();
+  const insets = useSafeAreaInsets();
   const id = route.params?.id || route.params?._id;
 
   const [expense, setExpense] = useState(null);
@@ -107,144 +130,170 @@ export default function ExpenseDetailsScreen() {
 
   if (loading)
     return (
-      <View style={styles.centered}>
-        <LinearGradient
-          colors={['#667eea', '#764ba2']}
-          style={styles.loadingContainer}
-        >
-          <ActivityIndicator size="large" color="#FFF" />
+      <View
+        style={[
+          styles.centered,
+          { paddingTop: insets.top, paddingBottom: insets.bottom },
+        ]}
+      >
+        <StatusBar
+          barStyle="light-content"
+          backgroundColor={NAVY.primary}
+          translucent={Platform.OS === 'android'}
+        />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={NAVY.onPrimary} />
           <Text style={styles.loadingText}>Loading expense details...</Text>
-        </LinearGradient>
+        </View>
       </View>
     );
 
   if (!expense)
     return (
-      <View style={styles.centered}>
-        <MaterialIcons name="error" size={64} color="#EF4444" />
+      <View
+        style={[
+          styles.centered,
+          { paddingTop: insets.top, paddingBottom: insets.bottom },
+        ]}
+      >
+        <StatusBar
+          barStyle="dark-content"
+          backgroundColor={NAVY.bg}
+          translucent={Platform.OS === 'android'}
+        />
+        <MaterialIcons name="error-outline" size={52} color={NAVY.error} />
         <Text style={styles.errorText}>Expense not found</Text>
       </View>
     );
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* HEADER */}
-      <LinearGradient
-        colors={['#667eea', '#764ba2']}
-        style={styles.headerGradient}
+    <View style={{ flex: 1, backgroundColor: NAVY.primary }}>
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={NAVY.primary}
+        translucent={Platform.OS === 'android'}
+      />
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 20) }}
       >
-        <Text style={styles.headerTitle}>Expense Details</Text>
+        {/* HEADER */}
+        <View style={[styles.headerGradient, { paddingTop: insets.top + 16 }]}>
+          <Text style={styles.headerTitle}>Expense Details</Text>
 
-        <View style={styles.headerStatusContainer}>
-          <MaterialIcons
-            name={getStatusIcon(expense.status)}
-            size={22}
-            color="#FFF"
-          />
-          <Text style={styles.headerStatus}>
-            {String(expense.status || 'pending')
-              .replace(/_/g, ' ')
-              .toUpperCase()}
-          </Text>
-        </View>
-      </LinearGradient>
-
-      {/* MAIN INFO */}
-      <View style={[styles.mainCard, styles.cardShadow]}>
-        <View style={styles.cardHeader}>
-          <MaterialIcons name="receipt" size={24} color={PRIMARY_COLOR} />
-          <Text style={styles.cardTitle}>Expense Information</Text>
+          <View style={styles.headerStatusContainer}>
+            <MaterialIcons
+              name={getStatusIcon(expense.status)}
+              size={18}
+              color={NAVY.onPrimary}
+            />
+            <Text style={styles.headerStatus}>
+              {String(expense.status || 'pending')
+                .replace(/_/g, ' ')
+                .toUpperCase()}
+            </Text>
+          </View>
         </View>
 
-        {[
-          ['Expense Name', expense.expenseName],
-          ['Manager', expense.managerId?.name],
-          ['Finance', expense.financeId?.name],
-          ['Currency', expense.currency],
-          ['Total Reimbursement', expense.totalReimbursement],
-          ['From', formatDate(expense.periodFrom)],
-          ['To', formatDate(expense.periodTo)],
-          ['Client', getClientName(expense.clientId)],
-          ['Reference No', expense.reference],
-          ['Advance Amount', expense.advanceAmount],
-        ].map(([label, value], i) => (
-          <Info key={i} label={label} value={value} />
-        ))}
-      </View>
-
-      {/* SUB EXPENSES */}
-      <Section title="Sub-Expenses" icon="list" />
-
-      {(expense.subExpenses || []).map((sub, index) => (
-        <View key={sub._id} style={[styles.subExpenseCard, styles.cardShadow]}>
-          <View style={styles.subExpenseHeader}>
-            <View style={styles.subExpenseNumber}>
-              <Text style={styles.subExpenseNumberText}>{index + 1}</Text>
-            </View>
-
-            <View style={{ flex: 1 }}>
-              <Text style={styles.subExpenseType}>
-                {getCategoryName(sub.expenseCategory)}
-              </Text>
-              <Text style={styles.subExpenseName}>{sub.expenseType}</Text>
-            </View>
-
-            <View style={styles.amountContainer}>
-              <Text style={styles.amountText}>
-                {sub.amount} {expense.currency}
-              </Text>
-            </View>
+        {/* MAIN INFO */}
+        <View style={styles.mainCard}>
+          <View style={styles.cardHeader}>
+            <MaterialIcons name="receipt" size={19} color={NAVY.primary} />
+            <Text style={styles.cardTitle}>Expense Information</Text>
           </View>
 
-          <Info label="Document Date" value={formatDate(sub.documentDate)} />
-          <Info label="Vendor" value={sub.vendor} />
-          <Info label="GL Account" value={sub.gl_account} />
-          <Info label="Description" value={sub.description} />
-
-          {/* ATTACHMENTS */}
-          {sub.files?.length > 0 && (
-            <View style={styles.attachmentsSection}>
-              <Text style={styles.attachmentsTitle}>
-                Attachments ({sub.files.length})
-              </Text>
-
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {sub.files.map(file => {
-                  const isImage = file?.type?.startsWith('image/');
-                  return (
-                    <TouchableOpacity
-                      key={file._id}
-                      onPress={() => openFile(file)}
-                      style={styles.attachmentItem}
-                    >
-                      {isImage ? (
-                        <Image
-                          source={{ uri: file.url }}
-                          style={styles.attachmentImage}
-                        />
-                      ) : (
-                        <View style={styles.pdfContainer}>
-                          <MaterialIcons
-                            name="picture-as-pdf"
-                            size={32}
-                            color="#EF4444"
-                          />
-                        </View>
-                      )}
-                      <Text numberOfLines={1} style={styles.fileName}>
-                        {file.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          )}
+          {[
+            ['Expense Name', expense.expenseName],
+            ['Manager', expense.managerId?.name],
+            ['Finance', expense.financeId?.name],
+            ['Currency', expense.currency],
+            ['Total Reimbursement', expense.totalReimbursement],
+            ['From', formatDate(expense.periodFrom)],
+            ['To', formatDate(expense.periodTo)],
+            ['Client', getClientName(expense.clientId)],
+            ['Reference No', expense.reference],
+            ['Advance Amount', expense.advanceAmount],
+          ].map(([label, value], i) => (
+            <Info key={i} label={label} value={value} />
+          ))}
         </View>
-      ))}
 
-      <View style={{ height: 40 }} />
-    </ScrollView>
+        {/* SUB EXPENSES */}
+        <Section title="Sub-Expenses" icon="list" />
+
+        {(expense.subExpenses || []).map((sub, index) => (
+          <View key={sub._id} style={styles.subExpenseCard}>
+            <View style={styles.subExpenseHeader}>
+              <View style={styles.subExpenseNumber}>
+                <Text style={styles.subExpenseNumberText}>{index + 1}</Text>
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <Text style={styles.subExpenseType}>
+                  {getCategoryName(sub.expenseCategory)}
+                </Text>
+                <Text style={styles.subExpenseName}>{sub.expenseType}</Text>
+              </View>
+
+              <View style={styles.amountContainer}>
+                <Text style={styles.amountText}>
+                  {sub.amount} {expense.currency}
+                </Text>
+              </View>
+            </View>
+
+            <Info label="Document Date" value={formatDate(sub.documentDate)} />
+            <Info label="Vendor" value={sub.vendor} />
+            <Info label="GL Account" value={sub.gl_account} />
+            <Info label="Description" value={sub.description} />
+
+            {/* ATTACHMENTS */}
+            {sub.files?.length > 0 && (
+              <View style={styles.attachmentsSection}>
+                <Text style={styles.attachmentsTitle}>
+                  Attachments ({sub.files.length})
+                </Text>
+
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {sub.files.map(file => {
+                    const isImage = file?.type?.startsWith('image/');
+                    return (
+                      <TouchableOpacity
+                        key={file._id}
+                        onPress={() => openFile(file)}
+                        style={styles.attachmentItem}
+                        activeOpacity={0.75}
+                      >
+                        {isImage ? (
+                          <Image
+                            source={{ uri: file.url }}
+                            style={styles.attachmentImage}
+                          />
+                        ) : (
+                          <View style={styles.pdfContainer}>
+                            <MaterialIcons
+                              name="picture-as-pdf"
+                              size={26}
+                              color={NAVY.error}
+                            />
+                          </View>
+                        )}
+                        <Text numberOfLines={1} style={styles.fileName}>
+                          {file.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+          </View>
+        ))}
+
+        <View style={{ height: 10 }} />
+      </ScrollView>
+    </View>
   );
 }
 
@@ -261,7 +310,7 @@ const Info = ({ label, value }) => (
 
 const Section = ({ title, icon }) => (
   <View style={styles.sectionHeader}>
-    <MaterialIcons name={icon} size={24} color={PRIMARY_COLOR} />
+    <MaterialIcons name={icon} size={18} color={NAVY.primary} />
     <Text style={styles.sectionTitle}>{title}</Text>
   </View>
 );
@@ -269,112 +318,153 @@ const Section = ({ title, icon }) => (
 /* ---------------- STYLES ---------------- */
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingContainer: { padding: 14, borderRadius: 12 },
-  loadingText: { color: '#FFF', marginTop: 16 },
-  errorText: { marginTop: 16, color: '#EF4444', fontSize: 16 },
+  container: { flex: 1, backgroundColor: NAVY.bg },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: NAVY.bg,
+    gap: 10,
+  },
+  loadingContainer: {
+    padding: 16,
+    borderRadius: 14,
+    backgroundColor: NAVY.primary,
+    alignItems: 'center',
+  },
+  loadingText: { color: NAVY.onPrimary, marginTop: 12, fontSize: 13 },
+  errorText: { color: NAVY.error, fontSize: 14, fontWeight: '600' },
 
   headerGradient: {
+    backgroundColor: NAVY.primary,
     padding: 14,
-    paddingTop: 60,
+    paddingBottom: 46,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
   },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: '#FFF' },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: NAVY.onPrimary },
   headerStatusContainer: {
     flexDirection: 'row',
-    alignSelf: 'center',
-    marginTop: 12,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 14,
+    alignSelf: 'flex-start',
+    alignItems: 'center',
+    marginTop: 10,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 12,
   },
-  headerStatus: { marginLeft: 8, color: '#FFF', fontWeight: '600' },
+  headerStatus: {
+    marginLeft: 6,
+    color: NAVY.onPrimary,
+    fontWeight: '700',
+    fontSize: 12,
+  },
 
   mainCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 12,
+    backgroundColor: NAVY.surface,
+    borderRadius: 14,
     padding: 14,
-    margin: 16,
-    marginTop: -40,
+    margin: 14,
+    marginTop: -34,
+    borderWidth: 1,
+    borderColor: NAVY.border,
   },
 
-  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  cardTitle: { marginLeft: 10, fontSize: 16, fontWeight: '700' },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  cardTitle: { fontSize: 14, fontWeight: '700', color: NAVY.textPrimary },
 
   webRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+    paddingVertical: 9,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: '#F0F1F4',
   },
-  webLabel: { color: '#6B7280' },
-  webValue: { fontWeight: '600', maxWidth: '50%', textAlign: 'right' },
+  webLabel: { color: NAVY.textSecondary, fontSize: 12.5 },
+  webValue: {
+    fontWeight: '600',
+    color: NAVY.textPrimary,
+    fontSize: 13,
+    maxWidth: '55%',
+    textAlign: 'right',
+  },
 
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 16,
-    marginTop: 16,
+    marginHorizontal: 14,
+    marginTop: 14,
+    gap: 8,
   },
-  sectionTitle: { marginLeft: 10, fontSize: 16, fontWeight: '700' },
+  sectionTitle: { fontSize: 14, fontWeight: '700', color: NAVY.textPrimary },
 
   subExpenseCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 14,
-    margin: 16,
+    backgroundColor: NAVY.surface,
+    borderRadius: 14,
+    padding: 13,
+    margin: 14,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: NAVY.border,
   },
 
   subExpenseHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   subExpenseNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 12,
-    backgroundColor: PRIMARY_COLOR,
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    backgroundColor: NAVY.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 12,
   },
-  subExpenseNumberText: { color: '#FFF', fontWeight: '700' },
-  subExpenseType: { color: '#6B7280' },
-  subExpenseName: { fontWeight: '700', fontSize: 16 },
+  subExpenseNumberText: {
+    color: NAVY.onPrimary,
+    fontWeight: '700',
+    fontSize: 12.5,
+  },
+  subExpenseType: { color: NAVY.textSecondary, fontSize: 12 },
+  subExpenseName: { fontWeight: '700', fontSize: 14, color: NAVY.textPrimary },
 
   amountContainer: {
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: NAVY.successBg,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 8,
   },
-  amountText: { fontWeight: '700', color: '#059669' },
+  amountText: { fontWeight: '700', color: NAVY.success, fontSize: 12.5 },
 
-  attachmentsSection: { marginTop: 16 },
-  attachmentsTitle: { fontWeight: '700', marginBottom: 8 },
+  attachmentsSection: { marginTop: 12 },
+  attachmentsTitle: {
+    fontWeight: '700',
+    marginBottom: 8,
+    fontSize: 12.5,
+    color: NAVY.textPrimary,
+  },
 
-  attachmentItem: { marginRight: 12, width: 100, alignItems: 'center' },
-  attachmentImage: { width: 80, height: 80, borderRadius: 10 },
+  attachmentItem: { marginRight: 10, width: 84, alignItems: 'center' },
+  attachmentImage: { width: 68, height: 68, borderRadius: 10 },
   pdfContainer: {
-    width: 80,
-    height: 80,
+    width: 68,
+    height: 68,
     borderRadius: 10,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: NAVY.errorBg,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  fileName: { marginTop: 6, fontSize: 12, textAlign: 'center' },
-
-  cardShadow: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 3,
+  fileName: {
+    marginTop: 5,
+    fontSize: 11,
+    textAlign: 'center',
+    color: NAVY.textSecondary,
   },
 });

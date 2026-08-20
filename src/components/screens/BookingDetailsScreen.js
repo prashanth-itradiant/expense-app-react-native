@@ -41,9 +41,24 @@ const IS_SHORT_SCREEN = SCREEN_HEIGHT < 700;
 const formatDateTime = d => (d ? new Date(d).toLocaleString() : 'N/A');
 
 const STATUS_MAP = {
-  pending: { bg: '#FEF3C7', text: '#92400E', icon: 'schedule', label: 'PENDING' },
-  completed: { bg: '#DCFCE7', text: '#166534', icon: 'check-circle', label: 'COMPLETED' },
-  cancelled: { bg: '#F3F4F6', text: '#374151', icon: 'cancel', label: 'CANCELLED' },
+  pending: {
+    bg: '#FEF3C7',
+    text: '#92400E',
+    icon: 'schedule',
+    label: 'PENDING',
+  },
+  completed: {
+    bg: '#DCFCE7',
+    text: '#166534',
+    icon: 'check-circle',
+    label: 'COMPLETED',
+  },
+  cancelled: {
+    bg: '#F3F4F6',
+    text: '#374151',
+    icon: 'cancel',
+    label: 'CANCELLED',
+  },
 };
 
 /* ------------------ reusable UI ------------------ */
@@ -68,7 +83,11 @@ const InfoRow = ({ label, value }) => (
 );
 
 const FileRow = ({ file }) => (
-  <TouchableOpacity onPress={() => openFile(file)} style={styles.fileRow} activeOpacity={0.7}>
+  <TouchableOpacity
+    onPress={() => openFile(file)}
+    style={styles.fileRow}
+    activeOpacity={0.7}
+  >
     <MaterialIcons name="attach-file" size={16} color={NAVY.primary} />
     <Text numberOfLines={1} style={styles.fileText}>
       {typeof file === 'string' ? file : file?.name || 'View File'}
@@ -105,8 +124,17 @@ export default function BookingDetailsScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.center, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        <StatusBar barStyle="dark-content" backgroundColor={NAVY.screenBg} translucent={Platform.OS === 'android'} />
+      <View
+        style={[
+          styles.center,
+          { paddingTop: insets.top, paddingBottom: insets.bottom },
+        ]}
+      >
+        <StatusBar
+          barStyle="dark-content"
+          backgroundColor={NAVY.screenBg}
+          translucent={Platform.OS === 'android'}
+        />
         <ActivityIndicator size="large" color={NAVY.primary} />
       </View>
     );
@@ -114,8 +142,17 @@ export default function BookingDetailsScreen() {
 
   if (!booking) {
     return (
-      <View style={[styles.center, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        <StatusBar barStyle="dark-content" backgroundColor={NAVY.screenBg} translucent={Platform.OS === 'android'} />
+      <View
+        style={[
+          styles.center,
+          { paddingTop: insets.top, paddingBottom: insets.bottom },
+        ]}
+      >
+        <StatusBar
+          barStyle="dark-content"
+          backgroundColor={NAVY.screenBg}
+          translucent={Platform.OS === 'android'}
+        />
         <MaterialIcons name="search-off" size={40} color={NAVY.textMuted} />
         <Text style={styles.notFoundText}>Booking not found</Text>
       </View>
@@ -126,7 +163,11 @@ export default function BookingDetailsScreen() {
 
   return (
     <View style={[styles.root, { paddingBottom: insets.bottom }]}>
-      <StatusBar barStyle="light-content" backgroundColor={NAVY.primary} translucent={Platform.OS === 'android'} />
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={NAVY.primary}
+        translucent={Platform.OS === 'android'}
+      />
 
       <ScrollView
         style={styles.container}
@@ -134,7 +175,12 @@ export default function BookingDetailsScreen() {
         contentContainerStyle={{ paddingBottom: 24 }}
       >
         {/* HEADER */}
-        <View style={[styles.header, { paddingTop: (Platform.OS === 'android' ? insets.top : 0) + 16 }]}>
+        <View
+          style={[
+            styles.header,
+            { paddingTop: (Platform.OS === 'android' ? insets.top : 0) + 16 },
+          ]}
+        >
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={styles.backBtn}
@@ -148,17 +194,29 @@ export default function BookingDetailsScreen() {
           </Text>
 
           <View style={[styles.statusBadge, { backgroundColor: statusUI.bg }]}>
-            <MaterialIcons name={statusUI.icon} size={13} color={statusUI.text} />
-            <Text style={[styles.statusText, { color: statusUI.text }]}>{statusUI.label}</Text>
+            <MaterialIcons
+              name={statusUI.icon}
+              size={13}
+              color={statusUI.text}
+            />
+            <Text style={[styles.statusText, { color: statusUI.text }]}>
+              {statusUI.label}
+            </Text>
           </View>
 
           {booking.status === 'completed' && (
             <TouchableOpacity
               style={styles.createExpenseBtn}
               activeOpacity={0.85}
-              onPress={() => navigation.navigate('AddExpense', { bookingId: booking._id })}
+              onPress={() =>
+                navigation.navigate('AddExpense', { bookingId: booking._id })
+              }
             >
-              <MaterialIcons name="receipt-long" size={16} color={NAVY.primary} />
+              <MaterialIcons
+                name="receipt-long"
+                size={16}
+                color={NAVY.primary}
+              />
               <Text style={styles.createExpenseText}>Create Expense</Text>
             </TouchableOpacity>
           )}
@@ -173,9 +231,15 @@ export default function BookingDetailsScreen() {
             value={`₹${Number(booking.estimatedAmount || 0).toFixed(2)}`}
           />
           {booking.ticketCost > 0 && (
-            <InfoRow label="Ticket Cost" value={`₹${Number(booking.ticketCost).toFixed(2)}`} />
+            <InfoRow
+              label="Ticket Cost"
+              value={`₹${Number(booking.ticketCost).toFixed(2)}`}
+            />
           )}
-          <InfoRow label="Created At" value={formatDateTime(booking.createdAt)} />
+          <InfoRow
+            label="Created At"
+            value={formatDateTime(booking.createdAt)}
+          />
         </SectionCard>
 
         {/* VIEW TICKET */}
@@ -194,9 +258,15 @@ export default function BookingDetailsScreen() {
 
         {/* TIMELINE */}
         <SectionCard title="Timeline" icon="timeline">
-          <InfoRow label="Booking Created" value={formatDateTime(booking.createdAt)} />
+          <InfoRow
+            label="Booking Created"
+            value={formatDateTime(booking.createdAt)}
+          />
           {booking.ticketUploadedAt && (
-            <InfoRow label="Ticket Uploaded" value={formatDateTime(booking.ticketUploadedAt)} />
+            <InfoRow
+              label="Ticket Uploaded"
+              value={formatDateTime(booking.ticketUploadedAt)}
+            />
           )}
         </SectionCard>
 
@@ -204,7 +274,9 @@ export default function BookingDetailsScreen() {
         <SectionCard title="Documents" icon="attach-file">
           <Text style={styles.subTitle}>Itinerary Documents</Text>
           {booking.itineraryDocs?.length ? (
-            booking.itineraryDocs.map((file, i) => <FileRow key={`it-${i}`} file={file} />)
+            booking.itineraryDocs.map((file, i) => (
+              <FileRow key={`it-${i}`} file={file} />
+            ))
           ) : (
             <Text style={styles.emptyText}>No itinerary files</Text>
           )}
@@ -213,7 +285,9 @@ export default function BookingDetailsScreen() {
 
           <Text style={styles.subTitle}>Supporting Documents</Text>
           {booking.supportingDocs?.length ? (
-            booking.supportingDocs.map((file, i) => <FileRow key={`sp-${i}`} file={file} />)
+            booking.supportingDocs.map((file, i) => (
+              <FileRow key={`sp-${i}`} file={file} />
+            ))
           ) : (
             <Text style={styles.emptyText}>No supporting files</Text>
           )}
